@@ -87,21 +87,25 @@ def build_json(root, graph) -> dict:
 
 def extract_input_variables_typed(nodes: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Extracts input variables from the template and adds them to the input_variables field."""
+    pattern = re.compile(r"\{(.*?)\}")
+
     for node in nodes:
-        with contextlib.suppress(Exception):
-            if "input_variables" in node["data"]["node"]["template"]:
-                if node["data"]["node"]["template"]["_type"] == "prompt":
-                    variables = re.findall(
-                        r"\{(.*?)\}",
-                        node["data"]["node"]["template"]["template"]["value"],
-                    )
-                elif node["data"]["node"]["template"]["_type"] == "few_shot":
-                    variables = re.findall(
-                        r"\{(.*?)\}",
-                        node["data"]["node"]["template"]["prefix"]["value"]
-                        + node["data"]["node"]["template"]["suffix"]["value"],
-                    )
+        try:
+            template = node["data"]["node"]["template"]
+            if "input_variables" in template:
+                _type = template["_type"]
+                if _type == "prompt":
+                    value = template["template"]["value"]
+                elif _type == "few_shot":
+                    value = template["prefix"]["value"] + template["suffix"]["value"]
                 else:
-                    variables = []
-                node["data"]["node"]["template"]["input_variables"]["value"] = variables
+                    value = ""
+
+                if value:
+                    template["input_variables"]["value"] = pattern.findall(value)
+                else:
+                    template["input_variables"]["value"] = []
+        except Exception:
+            continue
+
     return nodes
