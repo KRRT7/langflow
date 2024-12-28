@@ -1,5 +1,6 @@
 import contextlib
 import re
+from typing import Any
 
 
 def extract_input_variables(nodes):
@@ -82,3 +83,25 @@ def build_json(root, graph) -> dict:
         final_dict[key] = value
 
     return final_dict
+
+
+def extract_input_variables_typed(nodes: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Extracts input variables from the template and adds them to the input_variables field."""
+    for node in nodes:
+        with contextlib.suppress(Exception):
+            if "input_variables" in node["data"]["node"]["template"]:
+                if node["data"]["node"]["template"]["_type"] == "prompt":
+                    variables = re.findall(
+                        r"\{(.*?)\}",
+                        node["data"]["node"]["template"]["template"]["value"],
+                    )
+                elif node["data"]["node"]["template"]["_type"] == "few_shot":
+                    variables = re.findall(
+                        r"\{(.*?)\}",
+                        node["data"]["node"]["template"]["prefix"]["value"]
+                        + node["data"]["node"]["template"]["suffix"]["value"],
+                    )
+                else:
+                    variables = []
+                node["data"]["node"]["template"]["input_variables"]["value"] = variables
+    return nodes
