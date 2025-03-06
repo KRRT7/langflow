@@ -35,50 +35,47 @@ def get_root_vertex(graph):
 
 
 def build_json(root, graph) -> dict:
-    if "node" not in root.data:
-        # If the root node has no "node" key, then it has only one child,
-        # which is the target of the single outgoing edge
-        edge = root.edges[0]
-        local_nodes = [edge.target]
-    else:
-        # Otherwise, find all children whose type matches the type
-        # specified in the template
-        node_type = root.node_type
-        local_nodes = graph.get_nodes_with_target(root)
+    """Function to build a JSON description of nodes and their relationships from a root node.
+    """
 
-    if len(local_nodes) == 1:
-        return build_json(local_nodes[0], graph)
-    # Build a dictionary from the template
-    template = root.data["node"]["template"]
-    final_dict = template.copy()
+    def get_local_nodes(root, graph):
+        if "node" not in root.data:
+            # Single child scenario
+            return [root.edges[0].target]
+        # Multiple local nodes
+        return graph.get_nodes_with_target(root)
 
-    for key in final_dict:
-        if key == "_type":
-            continue
+    def recursive_build_json(local_nodes, graph):
+        if len(local_nodes) == 1:
+            return build_json(local_nodes[0], graph)
 
-        value = final_dict[key]
-        node_type = value["type"]
+        root = local_nodes[0]
+        template = root.data["node"]["template"]
+        final_dict = template.copy()
 
-        if "value" in value and value["value"] is not None:
-            # If the value is specified, use it
-            value = value["value"]
-        elif "dict" in node_type:
-            # If the value is a dictionary, create an empty dictionary
-            value = {}
-        else:
-            # Otherwise, recursively build the child nodes
-            children = []
-            for local_node in local_nodes:
-                node_children = graph.get_children_by_node_type(local_node, node_type)
-                children.extend(node_children)
+        for key in template:
+            if key == "_type":
+                continue
 
-            if value["required"] and not children:
-                msg = f"No child with type {node_type} found"
-                raise ValueError(msg)
-            values = [build_json(child, graph) for child in children]
-            value = (
-                list(values) if value["list"] else next(iter(values), None)  # type: ignore[arg-type]
-            )
-        final_dict[key] = value
+            value = template[key]
+            node_type = value["type"]
 
-    return final_dict
+            if "value" in value and value["value"] is not None:
+                final_dict[key] = value["value"]
+            elif "dict" in node_type:
+                final_dict[key] = {}
+            else:
+                children = []
+                for local_node in local_nodes:
+                    children.extend(graph.get_children_by_node_type(local_node, node_type))
+
+                if value["required"] and not children:
+                    raise ValueError(f"No child with type {node_type} found")
+
+                child_values = [build_json(child, graph) for child in children]
+                final_dict[key] = list(child_values) if value["list"] else (child_values[0] if child_values else None)
+
+        return final_dict
+
+    local_nodes = get_local_nodes(root, graph)
+    return recursive_build_json(local_nodes, graph)
