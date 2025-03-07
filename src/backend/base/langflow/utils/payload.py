@@ -1,26 +1,17 @@
-import contextlib
 import re
+from typing import Any
 
 
-def extract_input_variables(nodes):
+def extract_input_variables(nodes: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Extracts input variables from the template and adds them to the input_variables field."""
     for node in nodes:
-        with contextlib.suppress(Exception):
-            if "input_variables" in node["data"]["node"]["template"]:
-                if node["data"]["node"]["template"]["_type"] == "prompt":
-                    variables = re.findall(
-                        r"\{(.*?)\}",
-                        node["data"]["node"]["template"]["template"]["value"],
-                    )
-                elif node["data"]["node"]["template"]["_type"] == "few_shot":
-                    variables = re.findall(
-                        r"\{(.*?)\}",
-                        node["data"]["node"]["template"]["prefix"]["value"]
-                        + node["data"]["node"]["template"]["suffix"]["value"],
-                    )
-                else:
-                    variables = []
-                node["data"]["node"]["template"]["input_variables"]["value"] = variables
+        try:
+            template = node["data"]["node"]["template"]
+            if "input_variables" in template:
+                variables = extract_variables_from_template(template, template["_type"])
+                template["input_variables"]["value"] = variables
+        except Exception:
+            pass
     return nodes
 
 
@@ -82,3 +73,12 @@ def build_json(root, graph) -> dict:
         final_dict[key] = value
 
     return final_dict
+
+
+def extract_variables_from_template(template: dict, template_type: str) -> list[str]:
+    """Helper function to extract variables based on the template type."""
+    if template_type == "prompt":
+        return re.findall(r"\{(.*?)\}", template["template"]["value"])
+    if template_type == "few_shot":
+        return re.findall(r"\{(.*?)\}", template["prefix"]["value"] + template["suffix"]["value"])
+    return []
