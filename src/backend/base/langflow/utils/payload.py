@@ -5,23 +5,22 @@ from typing import Any
 
 def extract_input_variables_typed(nodes: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Extracts input variables from the template and adds them to the input_variables field."""
+    # Precompile the regexes for better performance
+    prompt_pattern = re.compile(r"\{(.*?)\}")
+
     for node in nodes:
         with contextlib.suppress(Exception):
-            if "input_variables" in node["data"]["node"]["template"]:
-                if node["data"]["node"]["template"]["_type"] == "prompt":
-                    variables = re.findall(
-                        r"\{(.*?)\}",
-                        node["data"]["node"]["template"]["template"]["value"],
-                    )
-                elif node["data"]["node"]["template"]["_type"] == "few_shot":
-                    variables = re.findall(
-                        r"\{(.*?)\}",
-                        node["data"]["node"]["template"]["prefix"]["value"]
-                        + node["data"]["node"]["template"]["suffix"]["value"],
-                    )
+            template = node["data"]["node"]["template"]
+            if "input_variables" in template:
+                template_type = template["_type"]
+                if template_type == "prompt":
+                    variables = prompt_pattern.findall(template["template"]["value"])
+                elif template_type == "few_shot":
+                    combined_text = template["prefix"]["value"] + template["suffix"]["value"]
+                    variables = prompt_pattern.findall(combined_text)
                 else:
                     variables = []
-                node["data"]["node"]["template"]["input_variables"]["value"] = variables
+                template["input_variables"]["value"] = variables
     return nodes
 
 
