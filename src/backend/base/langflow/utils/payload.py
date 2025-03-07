@@ -1,8 +1,9 @@
 import contextlib
 import re
+from typing import Any
 
 
-def extract_input_variables(nodes):
+def extract_input_variables_typed(nodes: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Extracts input variables from the template and adds them to the input_variables field."""
     for node in nodes:
         with contextlib.suppress(Exception):
