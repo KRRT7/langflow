@@ -1,26 +1,33 @@
-import contextlib
 import re
+from typing import Any
 
 
-def extract_input_variables(nodes):
+def extract_input_variables(nodes: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Extracts input variables from the template and adds them to the input_variables field."""
+    prompt_pattern = re.compile(r"\{(.*?)\}")
+
     for node in nodes:
-        with contextlib.suppress(Exception):
-            if "input_variables" in node["data"]["node"]["template"]:
-                if node["data"]["node"]["template"]["_type"] == "prompt":
-                    variables = re.findall(
-                        r"\{(.*?)\}",
-                        node["data"]["node"]["template"]["template"]["value"],
-                    )
-                elif node["data"]["node"]["template"]["_type"] == "few_shot":
-                    variables = re.findall(
-                        r"\{(.*?)\}",
-                        node["data"]["node"]["template"]["prefix"]["value"]
-                        + node["data"]["node"]["template"]["suffix"]["value"],
-                    )
+        try:
+            data_node = node["data"]["node"]
+            template_info = data_node["template"]
+            template_type = template_info["_type"]
+
+            if "input_variables" in template_info:
+                if template_type == "prompt":
+                    value = template_info["template"]["value"]
+                    variables = prompt_pattern.findall(value)
+                elif template_type == "few_shot":
+                    prefix = template_info["prefix"]["value"]
+                    suffix = template_info["suffix"]["value"]
+                    variables = prompt_pattern.findall(prefix + suffix)
                 else:
                     variables = []
-                node["data"]["node"]["template"]["input_variables"]["value"] = variables
+
+                template_info["input_variables"]["value"] = variables
+        except (KeyError, TypeError):
+            # Exception suppressed as in the original code
+            pass
+
     return nodes
 
 
@@ -82,3 +89,8 @@ def build_json(root, graph) -> dict:
         final_dict[key] = value
 
     return final_dict
+
+
+def extract_variables(template: dict[str, Any], pattern: re.Pattern) -> list[str]:
+    """Helper function to extract variables based on the provided pattern."""
+    return pattern.findall(template)
