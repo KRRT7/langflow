@@ -208,7 +208,7 @@ def update_source_handle(new_edge, g_nodes, g_edges):
     Returns:
         dict: The updated edge with the new source handle.
     """
-    last_node = copy.deepcopy(find_last_node(g_nodes, g_edges))
+    last_node = find_last_node(g_nodes, g_edges)
     new_edge["source"] = last_node["id"]
     new_source_handle = new_edge["data"]["sourceHandle"]
     new_source_handle["id"] = last_node["id"]
