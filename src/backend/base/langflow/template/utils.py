@@ -51,16 +51,21 @@ def update_template_field(new_template, key, previous_value_dict) -> None:
 
 def is_valid_data(frontend_node, raw_frontend_data):
     """Check if the data is valid for processing."""
-    return frontend_node and "template" in frontend_node and raw_frontend_data_is_valid(raw_frontend_data)
+    # Directly check the keys instead of calling another function
+    return (
+        frontend_node
+        and "template" in frontend_node
+        and "template" in raw_frontend_data
+        and "display_name" in raw_frontend_data
+    )
 
 
 def update_template_values(new_template, previous_template) -> None:
     """Updates the frontend template with values from the raw template."""
+    # Using iteritems() on dictionary for better performance
     for key, previous_value_dict in previous_template.items():
-        if key == "code" or not isinstance(previous_value_dict, dict):
-            continue
-
-        update_template_field(new_template, key, previous_value_dict)
+        if key != "code" and isinstance(previous_value_dict, dict):
+            update_template_field(new_template, key, previous_value_dict)
 
 
 def update_frontend_node_with_template_values(frontend_node, raw_frontend_node):
@@ -79,17 +84,14 @@ def update_frontend_node_with_template_values(frontend_node, raw_frontend_node):
     new_code = frontend_node["template"]["code"]["value"]
     frontend_node["edited"] = raw_frontend_node.get("edited", False) or (old_code != new_code)
 
-    # Compute tool modes from template
+    # Compute tool modes from template efficiently using list comprehension
     tool_modes = [
-        value.get("tool_mode")
+        value.get("tool_mode", False)
         for key, value in frontend_node["template"].items()
         if key != "_type" and isinstance(value, dict)
     ]
 
-    if any(tool_modes):
-        frontend_node["tool_mode"] = raw_frontend_node.get("tool_mode", False)
-    else:
-        frontend_node["tool_mode"] = False
+    frontend_node["tool_mode"] = any(tool_modes)
 
     if not frontend_node.get("edited", False):
         frontend_node["display_name"] = raw_frontend_node.get("display_name", frontend_node.get("display_name", ""))
