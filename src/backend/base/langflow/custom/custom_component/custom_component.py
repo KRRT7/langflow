@@ -326,7 +326,7 @@ class CustomComponent(BaseComponent):
         """Create references from a list of data.
 
         Args:
-            data (List[dict]): A list of data, where each record is a dictionary.
+            data (List[Data]): A list of Data objects.
             include_data (bool, optional): Whether to include data in the references. Defaults to False.
 
         Returns:
@@ -334,13 +334,10 @@ class CustomComponent(BaseComponent):
         """
         if not data:
             return ""
-        markdown_string = "---\n"
-        for value in data:
-            markdown_string += f"- Text: {value.get_text()}"
-            if include_data:
-                markdown_string += f" Data: {value.data}"
-            markdown_string += "\n"
-        return markdown_string
+
+        # Use list comprehension and join to build the markdown string more efficiently
+        lines = [f"- Text: {value.get_text()}{' Data: ' + str(value.data) if include_data else ''}" for value in data]
+        return "---\n" + "\n".join(lines) + "\n"
 
     @property
     def get_function_entrypoint_args(self) -> list:
