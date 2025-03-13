@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import ast
 import uuid
 from collections.abc import Callable, Sequence
+from functools import lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
 
@@ -562,3 +564,14 @@ class CustomComponent(BaseComponent):
         if self._tracing_service:
             return self._tracing_service.get_langchain_callbacks()
         return []
+
+
+@lru_cache(maxsize=128)
+def parse_code(code):
+    if not hasattr(ast, "TypeIgnore"):
+
+        class TypeIgnore(ast.AST):
+            _fields = ()
+
+        ast.TypeIgnore = TypeIgnore
+    return ast.parse(code)
