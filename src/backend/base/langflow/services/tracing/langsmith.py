@@ -4,6 +4,7 @@ import os
 import traceback
 import types
 from datetime import datetime, timezone
+from functools import cache
 from typing import TYPE_CHECKING, Any
 
 from loguru import logger
@@ -142,12 +143,12 @@ class LangSmithTracer(BaseTracer):
         self._child_link[trace_name] = child.get_url()
 
     @staticmethod
+    @cache
     def _error_to_string(error: Exception | None):
-        error_message = None
         if error:
             string_stacktrace = traceback.format_exception(error)
-            error_message = f"{error.__class__.__name__}: {error}\n\n{string_stacktrace}"
-        return error_message
+            return f"{error.__class__.__name__}: {error}\n\n{''.join(string_stacktrace)}"
+        return None
 
     def end(
         self,
@@ -158,10 +159,15 @@ class LangSmithTracer(BaseTracer):
     ) -> None:
         if not self._ready or not self._run_tree:
             return
+
         self._run_tree.add_metadata({"inputs": inputs})
+
         if metadata:
             self._run_tree.add_metadata(metadata)
+
         self._run_tree.end(outputs=outputs, error=self._error_to_string(error))
+
+        # Posting and getting the URL are kept in the end for potential latency benefits
         self._run_tree.post()
         self._run_link = self._run_tree.get_url()
 
