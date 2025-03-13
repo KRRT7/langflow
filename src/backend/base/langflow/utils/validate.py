@@ -36,28 +36,38 @@ def validate_code(code):
         errors["function"]["errors"].append(str(e))
         return errors
 
-    # Add a dummy type_ignores field to the AST
+    # Add a dummy type_ignores field to the AST if needed
     add_type_ignores()
     tree.type_ignores = []
 
-    # Evaluate the import statements
+    # Separate nodes processing loops for imports and functions
+    import_errors = []
+    function_defs = []
+
     for node in tree.body:
         if isinstance(node, ast.Import):
             for alias in node.names:
                 try:
                     importlib.import_module(alias.name)
                 except ModuleNotFoundError as e:
-                    errors["imports"]["errors"].append(str(e))
-
-    # Evaluate the function definition
-    for node in tree.body:
+                    import_errors.append(str(e))
         if isinstance(node, ast.FunctionDef):
-            code_obj = compile(ast.Module(body=[node], type_ignores=[]), "<string>", "exec")
-            try:
-                exec(code_obj)
-            except Exception as e:  # noqa: BLE001
+            function_defs.append(node)
+
+    # Evaluate the function definitions in a single compilation unit
+    if function_defs:
+        code_obj = compile(ast.Module(body=function_defs, type_ignores=[]), "<string>", "exec")
+        try:
+            exec(code_obj)
+        except Exception as e:  # noqa: BLE001
+            if hasattr(logger, "opt"):
                 logger.opt(exception=True).debug("Error executing function code")
-                errors["function"]["errors"].append(str(e))
+            else:
+                logger.debug("Error executing function code")
+            errors["function"]["errors"].append(str(e))
+
+    # Append collected errors
+    errors["imports"]["errors"].extend(import_errors)
 
     # Return the errors dictionary
     return errors
