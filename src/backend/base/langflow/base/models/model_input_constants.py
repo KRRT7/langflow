@@ -1,3 +1,5 @@
+from functools import cache
+
 from typing_extensions import TypedDict
 
 from langflow.base.models.model import LCModelComponent
@@ -21,6 +23,7 @@ class ModelProvidersDict(TypedDict):
     icon: str
 
 
+@cache
 def get_filtered_inputs(component_class):
     base_input_names = {field.name for field in LCModelComponent._base_inputs}
     component_instance = component_class()
@@ -72,14 +75,13 @@ def create_input_fields_dict(inputs: list[Input], prefix: str) -> dict[str, Inpu
 def _get_google_generative_ai_inputs_and_fields():
     try:
         from langflow.components.models.google_generative_ai import GoogleGenerativeAIComponent
-
-        google_generative_ai_inputs = get_filtered_inputs(GoogleGenerativeAIComponent)
-    except ImportError as e:
-        msg = (
-            "Google Generative AI is not installed. Please install it with "
-            "`pip install langchain-google-generative-ai`."
+    except ImportError:
+        raise ImportError(
+            "Google Generative AI is not installed. Install it with `pip install langchain-google-generative-ai`."
         )
-        raise ImportError(msg) from e
+
+    google_generative_ai_inputs = get_filtered_inputs(GoogleGenerativeAIComponent)
+
     return google_generative_ai_inputs, create_input_fields_dict(google_generative_ai_inputs, "")
 
 
