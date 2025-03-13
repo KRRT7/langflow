@@ -164,14 +164,17 @@ class CustomComponent(BaseComponent):
             raise ValueError(msg) from e
 
     def get_state(self, name: str):
-        if not self._vertex:
-            msg = "Vertex is not set"
-            raise ValueError(msg)
+        if self._vertex is None:
+            raise ValueError("Vertex is not set")
+
+        graph = self._vertex.graph
+        if graph is None:
+            raise ValueError("Graph is not set for the vertex")
+
         try:
-            return self._vertex.graph.get_state(name=name)
+            return graph.get_state(name=name)
         except Exception as e:
-            msg = f"Error getting state: {e}"
-            raise ValueError(msg) from e
+            raise ValueError(f"Error getting state: {e}") from e
 
     @staticmethod
     def resolve_path(path: str) -> str:

@@ -36,6 +36,7 @@ from langflow.graph.vertex.base import Vertex, VertexStates
 from langflow.graph.vertex.schema import NodeData, NodeTypeEnum
 from langflow.graph.vertex.vertex_types import ComponentVertex, InterfaceVertex, StateVertex
 from langflow.logging.logger import LogConfig, configure
+from langflow.schema import Data
 from langflow.schema.dotdict import dotdict
 from langflow.schema.schema import INPUT_FIELD_NAME, InputType
 from langflow.services.cache.utils import CacheMiss
@@ -498,7 +499,10 @@ class Graph:
         Returns:
             Optional[Data]: The state record, or None if the state does not exist.
         """
-        return self.state_manager.get_state(name, run_id=self._run_id)
+        # Directly access state_manager without the need for run_id validation.
+        if hasattr(self, "_run_id"):
+            return self.state_manager.get_state(name, run_id=self._run_id)
+        return None
 
     def update_state(self, name: str, record: str | Data, caller: str | None = None) -> None:
         """Updates the state of the graph with the given name.
