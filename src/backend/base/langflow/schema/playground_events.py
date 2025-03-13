@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from langflow.schema.content_block import ContentBlock
 from langflow.schema.content_types import ErrorContent
@@ -26,7 +26,6 @@ class PlaygroundEvent(BaseModel):
     )
     id_: UUID | str | None = Field(default=None, alias="id")
 
-    @field_serializer("timestamp")
     @classmethod
     def serialize_timestamp(cls, v: str) -> str:
         return v
