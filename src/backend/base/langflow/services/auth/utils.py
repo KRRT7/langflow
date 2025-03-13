@@ -1,5 +1,5 @@
 import base64
-import random
+import os
 import warnings
 from collections.abc import Coroutine
 from datetime import datetime, timedelta, timezone
@@ -349,15 +349,15 @@ def add_padding(s):
 
 
 def ensure_valid_key(s: str) -> bytes:
-    # If the key is too short, we'll use it as a seed to generate a valid key
+    # If the key is too short, we'll use it to generate a valid key
     if len(s) < MINIMUM_KEY_LENGTH:
-        # Use the input as a seed for the random number generator
-        random.seed(s)
         # Generate 32 random bytes
-        key = bytes(random.getrandbits(8) for _ in range(32))
+        key = os.urandom(32)
         key = base64.urlsafe_b64encode(key)
     else:
-        key = add_padding(s).encode()
+        # Determine padded length and add necessary padding
+        padded_length = (len(s) + 3) & ~3  # Equivalent to rounding up to the nearest multiple of 4
+        key = base64.urlsafe_b64encode(s.encode().ljust(padded_length, b"="))
     return key
 
 
