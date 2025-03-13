@@ -1,7 +1,9 @@
+from __future__ import annotations
+
 import ast
-import contextlib
 import importlib
 import warnings
+from functools import lru_cache
 from types import FunctionType
 from typing import Optional, Union
 
@@ -122,48 +124,30 @@ def execute_function(code, function_name, *args, **kwargs):
 
 
 def create_function(code, function_name):
-    if not hasattr(ast, "TypeIgnore"):
-
-        class TypeIgnore(ast.AST):
-            _fields = ()
-
-        ast.TypeIgnore = TypeIgnore
-
-    module = ast.parse(code)
+    module = parse_code(code)
     exec_globals = globals().copy()
 
     for node in module.body:
-        if isinstance(node, ast.Import | ast.ImportFrom):
+        if isinstance(node, (ast.Import, ast.ImportFrom)):
             for alias in node.names:
                 try:
-                    if isinstance(node, ast.ImportFrom):
-                        module_name = node.module
-                        exec_globals[alias.asname or alias.name] = getattr(
-                            importlib.import_module(module_name), alias.name
-                        )
-                    else:
-                        module_name = alias.name
-                        exec_globals[alias.asname or alias.name] = importlib.import_module(module_name)
+                    module_name = node.module if isinstance(node, ast.ImportFrom) else alias.name
+                    exec_globals[alias.asname or alias.name] = importlib.import_module(module_name)
                 except ModuleNotFoundError as e:
                     msg = f"Module {alias.name} not found. Please install it and try again."
                     raise ModuleNotFoundError(msg) from e
 
-    function_code = next(
-        node for node in module.body if isinstance(node, ast.FunctionDef) and node.name == function_name
+    function_node = next(
+        (node for node in module.body if isinstance(node, ast.FunctionDef) and node.name == function_name), None
     )
-    function_code.parent = None
-    code_obj = compile(ast.Module(body=[function_code], type_ignores=[]), "<string>", "exec")
-    exec_locals = dict(locals())
-    with contextlib.suppress(Exception):
-        exec(code_obj, exec_globals, exec_locals)
-    exec_globals[function_name] = exec_locals[function_name]
+    if not function_node:
+        raise ValueError(f"Function {function_name} not found in the provided code.")
 
-    # Return a function that imports necessary modules and calls the target function
+    function_node.parent = None
+    code_obj = compile(ast.Module(body=[function_node], type_ignores=[]), "<string>", "exec")
+    exec(code_obj, exec_globals)
+
     def wrapped_function(*args, **kwargs):
-        for module_name, module in exec_globals.items():
-            if isinstance(module, type(importlib)):
-                globals()[module_name] = module
-
         return exec_globals[function_name](*args, **kwargs)
 
     return wrapped_function
@@ -391,3 +375,14 @@ def extract_class_name(code: str) -> str:
     except SyntaxError as e:
         msg = f"Invalid Python code: {e!s}"
         raise ValueError(msg) from e
+
+
+@lru_cache(maxsize=128)
+def parse_code(code):
+    if not hasattr(ast, "TypeIgnore"):
+
+        class TypeIgnore(ast.AST):
+            _fields = ()
+
+        ast.TypeIgnore = TypeIgnore
+    return ast.parse(code)
