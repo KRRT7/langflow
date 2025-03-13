@@ -369,17 +369,15 @@ class CustomComponent(BaseComponent):
         if not self._code:
             return {}
 
-        component_classes = [
+        component_classes = (
             cls for cls in self.tree["classes"] if "Component" in cls["bases"] or "CustomComponent" in cls["bases"]
-        ]
-        if not component_classes:
-            return {}
+        )
+        for component_class in component_classes:
+            for method in component_class["methods"]:
+                if method["name"] == method_name:
+                    return method
 
-        # Assume the first Component class is the one we're interested in
-        component_class = component_classes[0]
-        build_methods = [method for method in component_class["methods"] if method["name"] == (method_name)]
-
-        return build_methods[0] if build_methods else {}
+        return {}
 
     @property
     def _get_function_entrypoint_return_type(self) -> list[Any]:
