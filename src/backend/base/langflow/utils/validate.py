@@ -9,7 +9,8 @@ from langchain_core._api.deprecation import LangChainDeprecationWarning
 from loguru import logger
 from pydantic import ValidationError
 
-from langflow.field_typing.constants import CUSTOM_COMPONENT_SUPPORTED_TYPES, DEFAULT_IMPORT_STRING
+from langflow.field_typing.constants import (CUSTOM_COMPONENT_SUPPORTED_TYPES,
+                                             DEFAULT_IMPORT_STRING)
 
 
 def add_type_ignores() -> None:
@@ -133,38 +134,31 @@ def create_function(code, function_name):
     exec_globals = globals().copy()
 
     for node in module.body:
-        if isinstance(node, ast.Import | ast.ImportFrom):
+        if isinstance(node, (ast.Import, ast.ImportFrom)):
             for alias in node.names:
+                module_name = alias.name if isinstance(node, ast.Import) else node.module
                 try:
-                    if isinstance(node, ast.ImportFrom):
-                        module_name = node.module
-                        exec_globals[alias.asname or alias.name] = getattr(
-                            importlib.import_module(module_name), alias.name
-                        )
-                    else:
-                        module_name = alias.name
-                        exec_globals[alias.asname or alias.name] = importlib.import_module(module_name)
-                except ModuleNotFoundError as e:
+                    imported_module = importlib.import_module(module_name)
+                    exec_globals[alias.asname or alias.name] = getattr(imported_module, alias.name, imported_module)
+                except ModuleNotFoundError:
                     msg = f"Module {alias.name} not found. Please install it and try again."
-                    raise ModuleNotFoundError(msg) from e
+                    raise ModuleNotFoundError(msg)
 
     function_code = next(
         node for node in module.body if isinstance(node, ast.FunctionDef) and node.name == function_name
     )
-    function_code.parent = None
-    code_obj = compile(ast.Module(body=[function_code], type_ignores=[]), "<string>", "exec")
-    exec_locals = dict(locals())
+    compiled_code = compile(ast.Module(body=[function_code], type_ignores=[]), "<string>", "exec")
+    exec_locals = {}
     with contextlib.suppress(Exception):
-        exec(code_obj, exec_globals, exec_locals)
-    exec_globals[function_name] = exec_locals[function_name]
+        exec(compiled_code, exec_globals, exec_locals)
+    target_function = exec_globals[function_name] = exec_locals[function_name]
 
     # Return a function that imports necessary modules and calls the target function
     def wrapped_function(*args, **kwargs):
         for module_name, module in exec_globals.items():
             if isinstance(module, type(importlib)):
                 globals()[module_name] = module
-
-        return exec_globals[function_name](*args, **kwargs)
+        return target_function(*args, **kwargs)
 
     return wrapped_function
 
