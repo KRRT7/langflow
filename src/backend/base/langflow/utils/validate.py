@@ -232,7 +232,19 @@ def prepare_global_scope(module):
         ModuleNotFoundError: If a module is not found in the code
     """
     exec_globals = globals().copy()
+    import_nodes = []
+    exec_nodes = []
+
     for node in module.body:
+        if isinstance(node, ast.Import):
+            import_nodes.append(node)
+        elif isinstance(node, ast.ImportFrom):
+            if node.module is not None:
+                import_nodes.append(node)
+        else:
+            exec_nodes.append(node)
+
+    for node in import_nodes:
         if isinstance(node, ast.Import):
             for alias in node.names:
                 try:
@@ -240,32 +252,25 @@ def prepare_global_scope(module):
                 except ModuleNotFoundError as e:
                     msg = f"Module {alias.name} not found. Please install it and try again."
                     raise ModuleNotFoundError(msg) from e
-        elif isinstance(node, ast.ImportFrom) and node.module is not None:
+        elif isinstance(node, ast.ImportFrom):
             try:
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore", LangChainDeprecationWarning)
                     imported_module = importlib.import_module(node.module)
                     for alias in node.names:
                         try:
-                            # First try getting it as an attribute
                             exec_globals[alias.name] = getattr(imported_module, alias.name)
                         except AttributeError:
-                            # If that fails, try importing the full module path
                             full_module_path = f"{node.module}.{alias.name}"
                             exec_globals[alias.name] = importlib.import_module(full_module_path)
             except ModuleNotFoundError as e:
-                msg = f"Module {node.module} not found. Please install it and try again"
+                msg = f"Module {node.module} not found. Please install it and try again."
                 raise ModuleNotFoundError(msg) from e
-        elif isinstance(node, ast.ClassDef):
-            # Compile and execute the class definition to properly create the class
-            class_code = compile(ast.Module(body=[node], type_ignores=[]), "<string>", "exec")
-            exec(class_code, exec_globals)
-        elif isinstance(node, ast.FunctionDef):
-            function_code = compile(ast.Module(body=[node], type_ignores=[]), "<string>", "exec")
-            exec(function_code, exec_globals)
-        elif isinstance(node, ast.Assign):
-            assign_code = compile(ast.Module(body=[node], type_ignores=[]), "<string>", "exec")
-            exec(assign_code, exec_globals)
+
+    if exec_nodes:
+        exec_code = compile(ast.Module(body=exec_nodes, type_ignores=[]), "<string>", "exec")
+        exec(exec_code, exec_globals)
+
     return exec_globals
 
 
