@@ -104,9 +104,8 @@ class Data(BaseModel):
         Returns:
             Data: The converted Data.
         """
-        data: dict = {"text": message.content}
-        data["metadata"] = cast("dict", message.to_json())
-        return cls(data=data, text_key="text")
+        # Populate data dictionary directly to avoid unnecessary temporary dictionary creation
+        return cls(data={"text": message.content, "metadata": cast("dict", message.to_json())}, text_key="text")
 
     def __add__(self, other: "Data") -> "Data":
         """Combines the data of two data by attempting to add values for overlapping keys.
