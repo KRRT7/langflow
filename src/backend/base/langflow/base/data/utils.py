@@ -53,7 +53,8 @@ def format_directory_path(path: str) -> str:
     Returns:
     str: A properly formatted path string.
     """
-    return path.replace("\n", "\\n")
+    # Only replace if newline character exists in path
+    return path.replace("\n", "\\n") if "\n" in path else path
 
 
 # Ignoring FBT001 because the DirectoryComponent in 1.0.19
