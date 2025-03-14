@@ -87,23 +87,25 @@ def _patch_send_message_decorator(component, func):
     will send messages to the UI.
     """
 
-    async def async_wrapper(*args, **kwargs):
-        original_send_message = component.send_message
+    async def _async_wrapper(*args, **kwargs):
+        return await func(*args, **kwargs)
+
+    def _sync_wrapper(*args, **kwargs):
+        return func(*args, **kwargs)
+
+    original_send_message = component.send_message
+
+    def wrapper(*args, **kwargs):
+        nonlocal original_send_message
         component.send_message = send_message_noop
         try:
-            return await func(*args, **kwargs)
+            if asyncio.iscoroutinefunction(func):
+                return _async_wrapper(*args, **kwargs)
+            return _sync_wrapper(*args, **kwargs)
         finally:
             component.send_message = original_send_message
 
-    def sync_wrapper(*args, **kwargs):
-        original_send_message = component.send_message
-        component.send_message = send_message_noop
-        try:
-            return func(*args, **kwargs)
-        finally:
-            component.send_message = original_send_message
-
-    return async_wrapper if asyncio.iscoroutinefunction(func) else sync_wrapper
+    return wrapper
 
 
 def _build_output_function(component: Component, output_method: Callable, event_manager: EventManager | None = None):
