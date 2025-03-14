@@ -13,4 +13,4 @@ CUSTOM_NODES: dict[str, dict[str, frontend_node.base.FrontendNode]] = {
 
 def get_custom_nodes(node_type: str):
     """Get custom nodes."""
-    return CUSTOM_NODES.get(node_type, {})
+    return CUSTOM_NODES[node_type] if node_type in CUSTOM_NODES else {}
