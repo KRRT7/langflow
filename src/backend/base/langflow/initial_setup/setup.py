@@ -690,10 +690,12 @@ async def create_starter_folder(session):
 
 def _is_valid_uuid(val):
     try:
+        # Directly attempt to create a UUID object, if it fails an exception is thrown
         uuid_obj = UUID(val)
+        # Check the length to ensure it's a complete valid UUID string before comparing
+        return len(val) == 36 and uuid_obj.hex == val.replace("-", "")
     except ValueError:
         return False
-    return str(uuid_obj) == val
 
 
 async def load_flows_from_directory() -> None:
