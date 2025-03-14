@@ -6,6 +6,7 @@ from collections import defaultdict
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, Any
 
+from langchain.callbacks.base import BaseCallbackHandler
 from loguru import logger
 
 from langflow.services.base import Service
@@ -280,14 +281,12 @@ class TracingService(Service):
     def get_langchain_callbacks(self) -> list[BaseCallbackHandler]:
         if self.deactivated:
             return []
-        callbacks = []
-        for tracer in self._tracers.values():
-            if not tracer.ready:  # type: ignore[truthy-function]
-                continue
-            langchain_callback = tracer.get_langchain_callback()
-            if langchain_callback:
-                callbacks.append(langchain_callback)
-        return callbacks
+        # using list comprehension for concise and potentially optimized loop
+        return [
+            langchain_callback
+            for tracer in self._tracers.values()
+            if tracer.ready and (langchain_callback := tracer.get_langchain_callback()) is not None
+        ]
 
     def set_session_id(self, session_id: str) -> None:
         """Set the session ID for tracing."""
