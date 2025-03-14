@@ -1,6 +1,7 @@
 import unicodedata
 from collections.abc import Callable
 from concurrent import futures
+from functools import lru_cache
 from pathlib import Path
 
 import chardet
@@ -36,6 +37,7 @@ TEXT_FILE_TYPES = [
 IMG_FILE_TYPES = ["jpg", "jpeg", "png", "bmp", "image"]
 
 
+@lru_cache(maxsize=1024)  # Adjust maxsize as needed
 def normalize_text(text):
     return unicodedata.normalize("NFKD", text)
 
