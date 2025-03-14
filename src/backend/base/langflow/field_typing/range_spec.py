@@ -30,4 +30,6 @@ class RangeSpec(BaseModel):
 
     @classmethod
     def set_step_type(cls, step_type: Literal["int", "float"], range_spec: "RangeSpec") -> "RangeSpec":
-        return cls(min=range_spec.min, max=range_spec.max, step=range_spec.step, step_type=step_type)
+        if range_spec.step_type == step_type:
+            return range_spec
+        return cls(step_type=step_type, min=range_spec.min, max=range_spec.max, step=range_spec.step)
