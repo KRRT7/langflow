@@ -7,9 +7,8 @@ from .content_types import CodeContent, ErrorContent, JSONContent, MediaContent,
 
 
 def _get_type(d: dict | BaseModel) -> str | None:
-    if isinstance(d, dict):
-        return d.get("type")
-    return getattr(d, "type", None)
+    # Using get for dictionary and getattr for BaseModel with short-circuit evaluation
+    return d.get("type") if isinstance(d, dict) else getattr(d, "type", None)
 
 
 # Create a union type of all content types
