@@ -179,16 +179,15 @@ class Data(BaseModel):
 
     def __getattr__(self, key):
         """Allows attribute-like access to the data dictionary."""
+        if key in {"data", "text_key"} or key.startswith("_"):
+            return super().__getattr__(key)
+
         try:
-            if key.startswith("__"):
-                return self.__getattribute__(key)
-            if key in {"data", "text_key"} or key.startswith("_"):
-                return super().__getattr__(key)
             return self.data[key]
-        except KeyError as e:
+        except KeyError:
             # Fallback to default behavior to raise AttributeError for undefined attributes
             msg = f"'{type(self).__name__}' object has no attribute '{key}'"
-            raise AttributeError(msg) from e
+            raise AttributeError(msg)
 
     def __setattr__(self, key, value) -> None:
         """Set attribute-like values in the data dictionary.
