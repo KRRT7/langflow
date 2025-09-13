@@ -44,12 +44,16 @@ def get_fields(build_config: dotdict, fields: list[str] | None = None) -> dict[s
 
 def update_input_types(build_config: dotdict) -> dotdict:
     """Update input types for all fields in build_config."""
-    for key, value in build_config.items():
-        if isinstance(value, dict):
-            if value.get("input_types") is None:
-                build_config[key]["input_types"] = []
-        elif hasattr(value, "input_types") and value.input_types is None:
-            value.input_types = []
+    # Cache methods and avoid repeated getattr calls inside the loop
+    items = build_config.items()
+    for key, value in items:
+        if type(value) is dict:  # Faster type-check than isinstance for common case
+            input_types = value.get("input_types")
+            if input_types is None:
+                value["input_types"] = []
+        elif hasattr(value, "input_types"):
+            if value.input_types is None:
+                value.input_types = []
     return build_config
 
 
