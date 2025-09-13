@@ -191,12 +191,15 @@ class StoreService(Service):
     def build_search_filter_conditions(query: str):
         # instead of build the param ?search=query, we will build the filter
         # that will use _icontains (case insensitive)
-        conditions: dict[str, Any] = {"_or": []}
-        conditions["_or"].append({"name": {"_icontains": query}})
-        conditions["_or"].append({"description": {"_icontains": query}})
-        conditions["_or"].append({"tags": {"tags_id": {"name": {"_icontains": query}}}})
-        conditions["_or"].append({"user_created": {"username": {"_icontains": query}}})
-        return conditions
+        _icontains = {"_icontains": query}
+        return {
+            "_or": [
+                {"name": _icontains},
+                {"description": _icontains},
+                {"tags": {"tags_id": {"name": _icontains}}},
+                {"user_created": {"username": _icontains}},
+            ]
+        }
 
     def build_filter_conditions(
         self,
