@@ -8,9 +8,10 @@ DEFAULT_FIELDS = ["code", "_type"]
 
 def update_fields(build_config: dotdict, fields: dict[str, Any]) -> dotdict:
     """Update specified fields in build_config with new values."""
-    for key, value in fields.items():
-        if key in build_config:
-            build_config[key] = value
+    build_keys = build_config.keys()
+    for key in fields:
+        if key in build_keys:
+            build_config[key] = fields[key]
     return build_config
 
 
