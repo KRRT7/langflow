@@ -73,10 +73,18 @@ def compute_bm25(documents: list[str], query_terms: list[str], k1: float = 1.2, 
     if avg_doc_length == 0:
         return [0.0] * n_docs
 
-    # Calculate document frequency for each term
-    document_frequencies = {}
-    for term in query_terms:
-        document_frequencies[term] = sum(1 for doc in tokenized_docs if term.lower() in doc)
+    # Pre-lowercase query terms to avoid repeated lowercasing
+    query_terms_lower = [term.lower() for term in query_terms]
+
+    # Calculate document frequency for each term using sets
+    doc_token_sets = [set(doc_tokens) for doc_tokens in tokenized_docs]
+    document_frequencies = {term: sum(term in doc_set for doc_set in doc_token_sets) for term in query_terms_lower}
+
+    # Precompute IDF for each term
+    idf_cache = {
+        term: math.log(n_docs / document_frequencies[term]) if document_frequencies[term] > 0 else 0
+        for term in query_terms_lower
+    }
 
     scores = []
 
@@ -85,15 +93,13 @@ def compute_bm25(documents: list[str], query_terms: list[str], k1: float = 1.2, 
         doc_length = len(doc_tokens)
         term_counts = Counter(doc_tokens)
 
-        for term in query_terms:
-            term_lower = term.lower()
-
+        for term in query_terms_lower:
             # Term frequency in document
-            tf = term_counts[term_lower]
+            tf = term_counts[term]
 
             # Inverse document frequency (IDF)
             # Use standard BM25 IDF formula that ensures non-negative values
-            idf = math.log(n_docs / document_frequencies[term]) if document_frequencies[term] > 0 else 0
+            idf = idf_cache[term]
 
             # BM25 score calculation
             numerator = tf * (k1 + 1)
