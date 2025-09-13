@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import uuid
 from ast import literal_eval
 from datetime import timedelta
@@ -291,7 +292,12 @@ def parse_value(value: Any, input_type: str) -> Any:
         if isinstance(value, dict):
             return value
         try:
-            return literal_eval(value) if value is not None else {}
+            if value is not None:
+                try:
+                    return json.loads(value)
+                except (json.JSONDecodeError, TypeError):
+                    return literal_eval(value)
+            return {}
         except (ValueError, SyntaxError):
             return {}
     return value
