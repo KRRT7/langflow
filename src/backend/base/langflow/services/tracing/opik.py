@@ -46,7 +46,7 @@ class OpikTracer(BaseTracer):
         self.opik_trace_id = None
         self.user_id = user_id
         self.session_id = session_id
-        self.flow_id = trace_name.split(" - ")[-1]
+        self.flow_id = trace_name.rsplit(" - ", 1)[-1]
         self.spans: dict = {}
 
         config = self._get_config()
@@ -146,15 +146,22 @@ class OpikTracer(BaseTracer):
         if not self._ready:
             return
 
-        from opik.decorator.error_info_collector import collect
-
         span = self.spans.get(trace_id, None)
 
         if span:
             output: dict = {}
-            output |= outputs or {}
-            output |= {"logs": list(logs)} if logs else {}
-            content = {"output": output, "error_info": collect(error) if error else None}
+            if outputs:
+                output |= outputs
+            if logs:
+                output["logs"] = list(logs)
+
+            error_info = None
+            if error is not None:
+                from opik.decorator.error_info_collector import collect
+
+                error_info = collect(error)
+
+            content = {"output": output, "error_info": error_info}
 
             span.init_end_time().update(**content)
 
