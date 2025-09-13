@@ -35,11 +35,8 @@ def get_fields(build_config: dotdict, fields: list[str] | None = None) -> dict[s
     if fields is None:
         return dict(build_config)
 
-    result = {}
-    for field in fields:
-        if field in build_config:
-            result[field] = build_config[field]
-    return result
+    build_config_get = build_config.get
+    return {field: build_config_get(field) for field in fields if field in build_config}
 
 
 def update_input_types(build_config: dotdict) -> dotdict:
