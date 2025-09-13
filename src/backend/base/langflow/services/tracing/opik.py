@@ -52,6 +52,7 @@ class OpikTracer(BaseTracer):
         config = self._get_config()
         self._ready: bool = self._setup_opik(config, trace_id) if config else False
         self._distributed_headers = None
+        self._langchain_opik_tracer_cls = None
 
     @property
     def ready(self):
@@ -187,12 +188,16 @@ class OpikTracer(BaseTracer):
         if not self._ready:
             return None
 
-        from opik.integrations.langchain import OpikTracer as LangchainOpikTracer
+        if self._langchain_opik_tracer_cls is None:
+            from opik.integrations.langchain import OpikTracer as LangchainOpikTracer
+
+            self._langchain_opik_tracer_cls = LangchainOpikTracer
 
         # Set project name for the langchain integration
-        os.environ["OPIK_PROJECT_NAME"] = self._project_name
+        if os.environ.get("OPIK_PROJECT_NAME") != self._project_name:
+            os.environ["OPIK_PROJECT_NAME"] = self._project_name
 
-        return LangchainOpikTracer(distributed_headers=self._distributed_headers)
+        return self._langchain_opik_tracer_cls(distributed_headers=self._distributed_headers)
 
     def _convert_to_opik_types(self, io_dict: dict[str | Any, Any]) -> dict[str, Any]:
         """Converts data types to Opik compatible formats."""
