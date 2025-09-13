@@ -1,3 +1,4 @@
+from functools import lru_cache
 from textwrap import dedent
 
 from lfx.components.data import FileComponent
@@ -10,6 +11,7 @@ from lfx.components.processing.split_text import SplitTextComponent
 from lfx.graph import Graph
 
 
+@lru_cache(maxsize=1)
 def ingestion_graph():
     # Ingestion Graph
     file_component = FileComponent()
@@ -25,6 +27,7 @@ def ingestion_graph():
     return Graph(file_component, vector_store)
 
 
+@lru_cache(maxsize=1)
 def rag_graph():
     # RAG Graph
     openai_embeddings = OpenAIEmbeddingsComponent()
@@ -57,5 +60,6 @@ def rag_graph():
     return Graph(start=chat_input, end=chat_output)
 
 
+@lru_cache(maxsize=1)
 def vector_store_rag_graph():
     return ingestion_graph() + rag_graph()
