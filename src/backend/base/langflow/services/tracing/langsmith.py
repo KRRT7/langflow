@@ -34,6 +34,7 @@ class LangSmithTracer(BaseTracer):
             self.trace_type = trace_type
             self.project_name = project_name
             self.trace_id = trace_id
+
             from langsmith import get_current_run_tree
             from langsmith.run_helpers import trace
 
@@ -65,11 +66,13 @@ class LangSmithTracer(BaseTracer):
         return self._ready
 
     def get_run_type(self, run_type: str) -> str:
-        from typing import get_args
+        if not hasattr(self, "_valid_run_types_cache"):
+            from typing import get_args
 
-        from langsmith import client
+            from langsmith import client
 
-        valid_run_types = set(get_args(client.RUN_TYPE_T))
+            self._valid_run_types_cache = set(get_args(client.RUN_TYPE_T))
+        valid_run_types = self._valid_run_types_cache
         if run_type not in valid_run_types:
             logger.warning("Run type %s is not valid. Using default run type 'chain'.", run_type)
             return "chain"
