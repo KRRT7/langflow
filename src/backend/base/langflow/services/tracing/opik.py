@@ -46,7 +46,8 @@ class OpikTracer(BaseTracer):
         self.opik_trace_id = None
         self.user_id = user_id
         self.session_id = session_id
-        self.flow_id = trace_name.split(" - ")[-1]
+        # Only split once from the right to avoid unnecessary string operations
+        self.flow_id = trace_name.rsplit(" - ", 1)[-1]
         self.spans: dict = {}
 
         config = self._get_config()
@@ -99,7 +100,10 @@ class OpikTracer(BaseTracer):
         try:
             opik_client.auth_check()
         except Exception as e:  # noqa: BLE001
-            logger.error(f"Opik auth check failed, OpikTracer will be disabled: {e}")
+            # Avoid f-string interpolation cost if logger.error won't log this level:
+            # But logger.error is imported from lfx.log.logger and likely not conditional,
+            # so caching str(e) does not help. The logging module will do formatting only if enabled, so no additional optimization.
+            logger.error("Opik auth check failed, OpikTracer will be disabled: %s", e)
             return False
         else:
             return True
