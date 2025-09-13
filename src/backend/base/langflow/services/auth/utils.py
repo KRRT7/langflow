@@ -1,4 +1,5 @@
 import base64
+import json
 import random
 import warnings
 from collections.abc import Coroutine
@@ -426,7 +427,14 @@ def create_user_api_key(user_id: UUID) -> dict:
 
 def get_user_id_from_token(token: str) -> UUID:
     try:
-        user_id = jwt.get_unverified_claims(token)["sub"]
+        parts = token.split(".")
+        if len(parts) != 3:
+            raise JWTError("Invalid JWT format")
+        payload_b64 = parts[1]
+        payload_b64 += "=" * (-len(payload_b64) % 4)
+        payload_bytes = base64.urlsafe_b64decode(payload_b64)
+        claims = json.loads(payload_bytes)
+        user_id = claims["sub"]
         return UUID(user_id)
     except (KeyError, JWTError, ValueError):
         return UUID(int=0)
