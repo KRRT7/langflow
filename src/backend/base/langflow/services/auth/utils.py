@@ -1,5 +1,5 @@
 import base64
-import random
+import hashlib
 import warnings
 from collections.abc import Coroutine
 from datetime import datetime, timedelta, timezone
@@ -507,18 +507,16 @@ async def authenticate_user(username: str, password: str, db: AsyncSession) -> U
 
 def add_padding(s):
     # Calculate the number of padding characters needed
-    padding_needed = 4 - len(s) % 4
+    padding_needed = (-len(s)) % 4
     return s + "=" * padding_needed
 
 
 def ensure_valid_key(s: str) -> bytes:
     # If the key is too short, we'll use it as a seed to generate a valid key
     if len(s) < MINIMUM_KEY_LENGTH:
-        # Use the input as a seed for the random number generator
-        random.seed(s)
-        # Generate 32 random bytes
-        key = bytes(random.getrandbits(8) for _ in range(32))
-        key = base64.urlsafe_b64encode(key)
+        # Generate 32 bytes using SHA256 hash of the input
+        hashed = hashlib.sha256(s.encode()).digest()
+        key = base64.urlsafe_b64encode(hashed)
     else:
         key = add_padding(s).encode()
     return key
