@@ -58,4 +58,6 @@ def rag_graph():
 
 
 def vector_store_rag_graph():
-    return ingestion_graph() + rag_graph()
+    if not hasattr(vector_store_rag_graph, "_cached_graph"):
+        vector_store_rag_graph._cached_graph = ingestion_graph() + rag_graph()
+    return vector_store_rag_graph._cached_graph
