@@ -63,22 +63,30 @@ def decrypt_auth_settings(auth_settings: dict[str, Any] | None) -> dict[str, Any
     if auth_settings is None:
         return None
 
+    SENSITIVE_FIELDS_local = SENSITIVE_FIELDS  # local ref speeds up loop slightly
+    needs_copy = False
+    result = auth_settings
     settings_service = get_settings_service()
-    decrypted_settings = auth_settings.copy()
 
-    for field in SENSITIVE_FIELDS:
-        if decrypted_settings.get(field):
+    for field in SENSITIVE_FIELDS_local:
+        original_value = auth_settings.get(field)
+        if original_value:
             try:
-                decrypted_value = auth_utils.decrypt_api_key(decrypted_settings[field], settings_service)
-                decrypted_settings[field] = decrypted_value
-                logger.debug(f"Decrypted field {field}")
+                decrypted_value = auth_utils.decrypt_api_key(original_value, settings_service)
+                # Only mutate the result dict if actual change needed
+                if decrypted_value != original_value:
+                    if not needs_copy:
+                        result = auth_settings.copy()
+                        needs_copy = True
+                    result[field] = decrypted_value
+                    logger.debug(f"Decrypted field {field}")
             except (ValueError, TypeError, KeyError, InvalidToken) as e:
                 # If decryption fails, assume the value is already plaintext
                 # This handles backward compatibility with existing unencrypted data
                 logger.debug(f"Field {field} appears to be plaintext or decryption failed: {e}")
                 # Keep the original value
 
-    return decrypted_settings
+    return result
 
 
 def is_encrypted(value: str) -> bool:

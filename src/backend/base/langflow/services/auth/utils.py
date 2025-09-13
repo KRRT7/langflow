@@ -7,7 +7,8 @@ from typing import TYPE_CHECKING, Annotated
 from uuid import UUID
 
 from cryptography.fernet import Fernet
-from fastapi import Depends, HTTPException, Request, Security, WebSocketException, status
+from fastapi import (Depends, HTTPException, Request, Security,
+                     WebSocketException, status)
 from fastapi.security import APIKeyHeader, APIKeyQuery, OAuth2PasswordBearer
 from jose import JWTError, jwt
 from lfx.log.logger import logger
@@ -17,9 +18,11 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from starlette.websockets import WebSocket
 
 from langflow.services.database.models.api_key.crud import check_key
-from langflow.services.database.models.user.crud import get_user_by_id, get_user_by_username, update_user_last_login_at
+from langflow.services.database.models.user.crud import (
+    get_user_by_id, get_user_by_username, update_user_last_login_at)
 from langflow.services.database.models.user.model import User, UserRead
-from langflow.services.deps import get_db_service, get_session, get_settings_service, session_scope
+from langflow.services.deps import (get_db_service, get_session,
+                                    get_settings_service, session_scope)
 
 if TYPE_CHECKING:
     from langflow.services.database.models.api_key.model import ApiKey
@@ -507,7 +510,7 @@ async def authenticate_user(username: str, password: str, db: AsyncSession) -> U
 
 def add_padding(s):
     # Calculate the number of padding characters needed
-    padding_needed = 4 - len(s) % 4
+    padding_needed = (-len(s)) % 4
     return s + "=" * padding_needed
 
 
@@ -552,7 +555,22 @@ def decrypt_api_key(encrypted_api_key: str, settings_service: SettingsService):
     Returns:
         str: The decrypted API key, or an empty string if decryption cannot be performed.
     """
-    fernet = get_fernet(settings_service)
+    # Cache Fernet per settings_service to avoid redundant cryptography overhead.
+    if not hasattr(decrypt_api_key, "_fernet_cache"):
+        decrypt_api_key._fernet_cache = {}
+    cache = decrypt_api_key._fernet_cache
+
+    # Use id(settings_service) for uniqueness
+    service_id = id(settings_service)
+    fernet = cache.get(service_id)
+    if fernet is None:
+        # get_fernet will generate a new Fernet object from the settings_service.
+        from langflow.services.auth.utils import \
+            get_fernet  # avoid circular import on module-level
+
+        fernet = get_fernet(settings_service)
+        cache[service_id] = fernet
+
     if isinstance(encrypted_api_key, str):
         try:
             return fernet.decrypt(encrypted_api_key.encode()).decode()
