@@ -225,9 +225,10 @@ class OpikTracer(BaseTracer):
 
     @staticmethod
     def _get_config() -> dict:
-        host = os.getenv("OPIK_URL_OVERRIDE", None)
-        api_key = os.getenv("OPIK_API_KEY", None)
-        workspace = os.getenv("OPIK_WORKSPACE", None)
+        env = os.environ
+        host = env.get("OPIK_URL_OVERRIDE")
+        api_key = env.get("OPIK_API_KEY")
+        workspace = env.get("OPIK_WORKSPACE")
 
         # API Key is mandatory for Opik Cloud and URL is mandatory for Open-Source Opik Server
         if host or api_key:
