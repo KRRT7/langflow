@@ -184,21 +184,32 @@ def scape_json_parse(json_string: str) -> dict:
         return {}
     if isinstance(json_string, dict):
         return json_string
-    parsed_string = json_string.replace("œ", '"')
-    return json.loads(parsed_string)
+    # Optimize by avoiding unnecessary intermediate string if no replacement is needed
+    if "œ" in json_string:
+        json_string = json_string.replace("œ", '"')
+    return json.loads(json_string)
 
 
 def update_new_output(data):
     nodes = copy.deepcopy(data["nodes"])
     edges = copy.deepcopy(data["edges"])
 
+    # Build node lookup for O(1) access instead of linear search
+    node_lookup = {node["id"]: (index, node) for index, node in enumerate(nodes)}
+
+    # Build edge lookup for second phase optimization
+    edges_by_source = {}
+    for edge in edges:
+        source_id = edge.get("source")
+        if source_id is not None:
+            edges_by_source.setdefault(source_id, []).append(edge)
+
     for edge in edges:
         if "sourceHandle" in edge and "targetHandle" in edge:
             new_source_handle = scape_json_parse(edge["sourceHandle"])
             new_target_handle = scape_json_parse(edge["targetHandle"])
             id_ = new_source_handle["id"]
-            source_node_index = next((index for (index, d) in enumerate(nodes) if d["id"] == id_), -1)
-            source_node = nodes[source_node_index] if source_node_index != -1 else None
+            source_node_index, source_node = node_lookup.get(id_, (-1, None))
 
             if "baseClasses" in new_source_handle:
                 if "output_types" not in new_source_handle:
@@ -255,9 +266,9 @@ def update_new_output(data):
     for node in nodes:
         if "outputs" in node["data"]["node"]:
             for output in node["data"]["node"]["outputs"]:
-                for edge in edges:
-                    if node["id"] != edge["source"] or output.get("method") is None:
-                        continue
+                if output.get("method") is None:
+                    continue
+                for edge in edges_by_source.get(node["id"], []):
                     source_handle = scape_json_parse(edge["sourceHandle"])
                     if source_handle["output_types"] == output.get("types") and source_handle["name"] != output["name"]:
                         source_handle["name"] = output["name"]
