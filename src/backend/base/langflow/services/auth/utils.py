@@ -507,7 +507,7 @@ async def authenticate_user(username: str, password: str, db: AsyncSession) -> U
 
 def add_padding(s):
     # Calculate the number of padding characters needed
-    padding_needed = 4 - len(s) % 4
+    padding_needed = (-len(s)) % 4
     return s + "=" * padding_needed
 
 
@@ -562,7 +562,10 @@ def decrypt_api_key(encrypted_api_key: str, settings_service: SettingsService):
                 "Retrying decryption using the raw string input.",
                 primary_exception,
             )
-            return fernet.decrypt(encrypted_api_key).decode()
+            try:
+                return fernet.decrypt(encrypted_api_key).decode()
+            except Exception:
+                return ""
     return ""
 
 
