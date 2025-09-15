@@ -10,6 +10,8 @@ from typing import TYPE_CHECKING, Any
 from lfx.log.logger import logger
 
 from langflow.services.base import Service
+from langflow.services.tracing.arize_phoenix import ArizePhoenixTracer
+from langflow.services.tracing.traceloop import TraceloopTracer
 
 if TYPE_CHECKING:
     from uuid import UUID
@@ -21,6 +23,8 @@ if TYPE_CHECKING:
 
     from langflow.services.tracing.base import BaseTracer
     from langflow.services.tracing.schema import Log
+
+_TRACELOOP_TRACER = None
 
 
 def _get_langsmith_tracer():
@@ -42,8 +46,6 @@ def _get_langfuse_tracer():
 
 
 def _get_arize_phoenix_tracer():
-    from langflow.services.tracing.arize_phoenix import ArizePhoenixTracer
-
     return ArizePhoenixTracer
 
 
@@ -54,8 +56,6 @@ def _get_opik_tracer():
 
 
 def _get_traceloop_tracer():
-    from langflow.services.tracing.traceloop import TraceloopTracer
-
     return TraceloopTracer
 
 
@@ -186,8 +186,8 @@ class TracingService(Service):
     def _initialize_arize_phoenix_tracer(self, trace_context: TraceContext) -> None:
         if self.deactivated:
             return
-        arize_phoenix_tracer = _get_arize_phoenix_tracer()
-        trace_context.tracers["arize_phoenix"] = arize_phoenix_tracer(
+        # Use already-imported ArizePhoenixTracer for faster execution
+        trace_context.tracers["arize_phoenix"] = ArizePhoenixTracer(
             trace_name=trace_context.run_name,
             trace_type="chain",
             project_name=trace_context.project_name,
