@@ -149,6 +149,8 @@ def messages_to_text(template: str, messages: Message | list[Message]) -> str:
 def clean_string(s):
     # Remove empty lines
     s = re.sub(r"^\s*$", "", s, flags=re.MULTILINE)
+    if "\n\n\n" not in s:
+        return s
     # Replace three or more newlines with a double newline
     return re.sub(r"\n{3,}", "\n\n", s)
 
