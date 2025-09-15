@@ -60,7 +60,9 @@ def is_pre_release(v: str) -> bool:
         Whether the version is a pre-release version,
         as per the definition of a pre-release segment from PEP 440.
     """
-    return any(label in v for label in ["a", "b", "rc"])
+    if "a" in v or "b" in v:
+        return True
+    return "rc" in v
 
 
 def is_nightly(v: str) -> bool:
