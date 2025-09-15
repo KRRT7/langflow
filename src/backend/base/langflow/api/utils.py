@@ -220,8 +220,10 @@ def format_syntax_error_message(exc: SyntaxError) -> str:
 
 def get_causing_exception(exc: BaseException) -> BaseException:
     """Get the causing exception from an exception."""
-    if hasattr(exc, "__cause__") and exc.__cause__:
-        return get_causing_exception(exc.__cause__)
+    cause = getattr(exc, "__cause__", None)
+    while cause:
+        exc = cause
+        cause = getattr(exc, "__cause__", None)
     return exc
 
 
