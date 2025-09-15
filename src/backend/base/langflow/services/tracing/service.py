@@ -298,10 +298,14 @@ class TracingService(Service):
 
         def _mask(obj: Any):
             if isinstance(obj, dict):
-                return {
-                    k: "*****" if any(word in k.lower() for word in sensitive_keywords) else _mask(v)
-                    for k, v in obj.items()
-                }
+                result = {}
+                for k, v in obj.items():
+                    k_lower = k.lower()
+                    if any(word in k_lower for word in sensitive_keywords):
+                        result[k] = "*****"
+                    else:
+                        result[k] = _mask(v)
+                return result
             if isinstance(obj, list):
                 return [_mask(i) for i in obj]
             return obj
