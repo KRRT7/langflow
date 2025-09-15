@@ -16,11 +16,12 @@ class StorageServiceFactory(ServiceFactory):
     @override
     def create(self, session_service: SessionService, settings_service: SettingsService):
         storage_type = settings_service.settings.storage_type
-        if storage_type.lower() == "local":
+        storage_type_lower = storage_type.lower()
+        if storage_type_lower == "local":
             from .local import LocalStorageService
 
             return LocalStorageService(session_service, settings_service)
-        if storage_type.lower() == "s3":
+        if storage_type_lower == "s3":
             from .s3 import S3StorageService
 
             return S3StorageService(session_service, settings_service)
