@@ -10,6 +10,8 @@ from typing import TYPE_CHECKING, Any
 from lfx.log.logger import logger
 
 from langflow.services.base import Service
+from langflow.services.tracing.arize_phoenix import ArizePhoenixTracer
+from langflow.services.tracing.opik import OpikTracer
 
 if TYPE_CHECKING:
     from uuid import UUID
@@ -42,14 +44,11 @@ def _get_langfuse_tracer():
 
 
 def _get_arize_phoenix_tracer():
-    from langflow.services.tracing.arize_phoenix import ArizePhoenixTracer
-
     return ArizePhoenixTracer
 
 
 def _get_opik_tracer():
-    from langflow.services.tracing.opik import OpikTracer
-
+    # Return the cached OpikTracer directly: avoids repeated import, and matches behavioral preservation requirements.
     return OpikTracer
 
 
@@ -186,8 +185,8 @@ class TracingService(Service):
     def _initialize_arize_phoenix_tracer(self, trace_context: TraceContext) -> None:
         if self.deactivated:
             return
-        arize_phoenix_tracer = _get_arize_phoenix_tracer()
-        trace_context.tracers["arize_phoenix"] = arize_phoenix_tracer(
+        # Use already-imported ArizePhoenixTracer for faster execution
+        trace_context.tracers["arize_phoenix"] = ArizePhoenixTracer(
             trace_name=trace_context.run_name,
             trace_type="chain",
             project_name=trace_context.project_name,
@@ -197,7 +196,8 @@ class TracingService(Service):
     def _initialize_opik_tracer(self, trace_context: TraceContext) -> None:
         if self.deactivated:
             return
-        opik_tracer = _get_opik_tracer()
+        # Use the cached OpikTracer from module import, avoids import latency and repeated lookups.
+        opik_tracer = OpikTracer
         trace_context.tracers["opik"] = opik_tracer(
             trace_name=trace_context.run_name,
             trace_type="chain",
