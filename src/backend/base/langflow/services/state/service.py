@@ -56,8 +56,7 @@ class InMemoryStateService(StateService):
             self.notify_observers(key, new_state)
 
     def get_state(self, key, run_id: str):
-        with self.lock:
-            return self.states.get(run_id, {}).get(key, "")
+        return self.states.get(run_id, {}).get(key, "")
 
     def subscribe(self, key, observer: Callable) -> None:
         with self.lock:
