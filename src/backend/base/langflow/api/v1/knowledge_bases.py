@@ -173,16 +173,17 @@ def get_text_columns(df: pd.DataFrame, schema_data: list | None = None) -> list[
             if col.get("vectorize", False) and col.get("data_type") == "string"
         ]
         if text_columns:
-            return [col for col in text_columns if col in df.columns]
+            df_columns = set(df.columns)
+            return [col for col in text_columns if col in df_columns]
 
     # Fallback to common text column names
-    common_names = ["text", "content", "document", "chunk"]
+    common_names = {"text", "content", "document", "chunk"}
     text_columns = [col for col in df.columns if col.lower() in common_names]
     if text_columns:
         return text_columns
 
     # Last resort: all string columns
-    return [col for col in df.columns if df[col].dtype == "object"]
+    return list(df.select_dtypes(include="object").columns)
 
 
 def calculate_text_metrics(df: pd.DataFrame, text_columns: list[str]) -> tuple[int, int]:
