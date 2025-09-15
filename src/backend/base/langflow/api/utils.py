@@ -91,14 +91,15 @@ def build_input_keys_response(langchain_object, artifacts):
 
 def validate_is_component(flows: list[Flow]):
     for flow in flows:
-        if not flow.data or flow.is_component is not None:
+        data = flow.data
+        if not data or flow.is_component is not None:
             continue
 
-        is_component = get_is_component_from_data(flow.data)
+        is_component = data.get("is_component")
         if is_component is not None:
             flow.is_component = is_component
         else:
-            flow.is_component = len(flow.data.get("nodes", [])) == 1
+            flow.is_component = len(data.get("nodes", [])) == 1
     return flows
 
 
