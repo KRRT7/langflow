@@ -448,22 +448,22 @@ def is_loopback_address(host: str) -> bool:
     Returns:
         bool: True if the host is a loopback address, False otherwise
     """
-    # Check if it's exactly "localhost"
-    if host == "localhost":
+    # Check for common loopback addresses
+    if host in {"localhost", "0.0.0.0"}:  # noqa: S104
         return True
 
-    # Check if it's exactly "0.0.0.0" (which binds to all interfaces)
-    if host == "0.0.0.0":  # noqa: S104
-        return True
+    # Skip try/except for strings that don't look like IP addresses
+    if host and (host[0].isdigit() or host[0] == ":"):
+        try:
+            # Convert string to IP address object
+            ip = ip_address(host)
+            # Check if it's a loopback address (127.0.0.0/8 for IPv4, ::1 for IPv6)
+            return bool(ip.is_loopback)
+        except ValueError:
+            # If the IP address is invalid, default to False
+            return False
 
-    try:
-        # Convert string to IP address object
-        ip = ip_address(host)
-        # Check if it's a loopback address (127.0.0.0/8 for IPv4, ::1 for IPv6)
-        return bool(ip.is_loopback)
-    except ValueError:
-        # If the IP address is invalid, default to False
-        return False
+    return False
 
 
 def can_connect(host: str, port: int, timeout: float = 1.0) -> bool:
