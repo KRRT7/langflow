@@ -1,5 +1,4 @@
 import json
-from collections import Counter
 from typing import Any
 
 from langflow.schema.data import Data
@@ -13,18 +12,26 @@ def infer_list_type(items: list, max_samples: int = 5) -> str:
     if not items:
         return "list(unknown)"
 
-    # Sample items (use all if less than max_samples)
     samples = items[:max_samples]
-    types = [get_type_str(item) for item in samples]
+    n = len(samples)
 
-    # Count type occurrences
-    type_counter = Counter(types)
+    # Fast path: check types during iteration; exit early if mixed type found
+    first_type = get_type_str(samples[0])
+    all_same = True
+    for i in range(1, n):
+        t = get_type_str(samples[i])
+        if t != first_type:
+            all_same = False
+            break
 
-    if len(type_counter) == 1:
-        # Single type
-        return f"list({types[0]})"
-    # Mixed types - show all found types
-    type_str = "|".join(sorted(type_counter.keys()))
+    if all_same:
+        return f"list({first_type})"
+
+    # Slow path: need to compute set (as much as Counter.keys())
+    seen = set()
+    for item in samples:
+        seen.add(get_type_str(item))
+    type_str = "|".join(sorted(seen))
     return f"list({type_str})"
 
 
@@ -42,8 +49,10 @@ def get_type_str(value: Any) -> str:
     if isinstance(value, float):
         return "float"
     if isinstance(value, str):
-        # Check if string is actually a date/datetime
-        if any(date_pattern in value.lower() for date_pattern in ["date", "time", "yyyy", "mm/dd", "dd/mm", "yyyy-mm"]):
+        val_lower = value.lower()
+        date_patterns = ("date", "time", "yyyy", "mm/dd", "dd/mm", "yyyy-mm")
+        # Faster: use any() over tuple
+        if any(pat in val_lower for pat in date_patterns):
             return "str(possible_date)"
         # Check if it's a JSON string
         try:
@@ -51,10 +60,10 @@ def get_type_str(value: Any) -> str:
             return "str(json)"
         except (json.JSONDecodeError, TypeError):
             pass
-        else:
-            return "str"
-    if isinstance(value, list | tuple | set):
-        return infer_list_type(list(value))
+        return "str"
+    # Only convert to list if necessary
+    if isinstance(value, (list, tuple, set)):
+        return infer_list_type(value if isinstance(value, list) else list(value))
     if isinstance(value, dict):
         return "dict"
     # Handle custom objects
@@ -84,22 +93,25 @@ def analyze_value(
         return f"max_depth_reached(depth={max_depth})"
 
     try:
-        if isinstance(value, list | tuple | set):
+        # Precompute for efficiency
+        is_sequence = isinstance(value, (list, tuple, set))
+        if is_sequence:
             length = len(value)
             if length == 0:
                 return "list(unknown)"
 
-            type_info = infer_list_type(list(value))
+            type_info = infer_list_type(value if isinstance(value, list) else list(value))
             size_info = f"[size={length}]" if size_hints else ""
 
-            # For lists of complex objects, include a sample of the structure
-            if (
+            # Compound condition precomputed
+            is_sampled_item_complex = (
                 include_samples
                 and length > 0
-                and isinstance(value, list | tuple)
-                and isinstance(value[0], dict | list)
+                and isinstance(value, (list, tuple))
+                and isinstance(value[0], (dict, list))
                 and current_depth < max_depth - 1
-            ):
+            )
+            if is_sampled_item_complex:
                 sample = analyze_value(
                     value[0],
                     max_depth,
