@@ -8,6 +8,7 @@ import sys
 import time
 import warnings
 from contextlib import suppress
+from functools import lru_cache
 from ipaddress import ip_address
 from pathlib import Path
 
@@ -37,6 +38,8 @@ from langflow.services.deps import get_db_service, get_settings_service, session
 from langflow.services.utils import initialize_services
 from langflow.utils.version import fetch_latest_version, get_version_info
 from langflow.utils.version import is_pre_release as langflow_is_pre_release
+
+_LOOPBACK_STRINGS = {"localhost", "0.0.0.0", "127.0.0.1", "::1"}
 
 # Initialize console with Windows-safe settings
 console = Console(legacy_windows=True, emoji=False) if platform.system() == "Windows" else Console()
@@ -439,6 +442,7 @@ def get_free_port(port):
     return port
 
 
+@lru_cache(maxsize=128)
 def is_loopback_address(host: str) -> bool:
     """Check if a host is a loopback address (localhost, 127.0.0.1, ::1, etc.).
 
@@ -449,11 +453,7 @@ def is_loopback_address(host: str) -> bool:
         bool: True if the host is a loopback address, False otherwise
     """
     # Check if it's exactly "localhost"
-    if host == "localhost":
-        return True
-
-    # Check if it's exactly "0.0.0.0" (which binds to all interfaces)
-    if host == "0.0.0.0":  # noqa: S104
+    if host in _LOOPBACK_STRINGS:
         return True
 
     try:
@@ -466,6 +466,7 @@ def is_loopback_address(host: str) -> bool:
         return False
 
 
+@lru_cache(maxsize=128)
 def can_connect(host: str, port: int, timeout: float = 1.0) -> bool:
     try:
         for res in socket.getaddrinfo(host, port, 0, socket.SOCK_STREAM):
