@@ -151,13 +151,17 @@ class ProgressIndicator:
         if not self.verbose:
             return
 
-        completed_steps = [s for s in self.steps if s["status"] in ["completed", "failed"]]
-        if not completed_steps:
-            return
+        completed_any = False
+        total_time = 0.0
 
-        total_time = sum(
-            (s["end_time"] - s["start_time"]) for s in completed_steps if s["start_time"] and s["end_time"]
-        )
+        for s in self.steps:
+            if s["status"] in ["completed", "failed"]:
+                if s["start_time"] and s["end_time"]:
+                    total_time += s["end_time"] - s["start_time"]
+                completed_any = True
+
+        if not completed_any:
+            return
 
         click.echo()
         click.echo(click.style(f"Total initialization time: {total_time:.2f}s", fg="bright_black"))
