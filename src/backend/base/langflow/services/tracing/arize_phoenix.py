@@ -240,17 +240,35 @@ class ArizePhoenixTracer(BaseTracer):
 
         child_span = self.child_spans[trace_id]
 
-        processed_outputs = self._convert_to_arize_phoenix_types(outputs) if outputs else {}
-        if processed_outputs:
-            child_span.set_attribute(SpanAttributes.OUTPUT_VALUE, self._safe_json_dumps(processed_outputs))
-            child_span.set_attribute(SpanAttributes.OUTPUT_MIME_TYPE, OpenInferenceMimeTypeValues.JSON.value)
+        # OPTIMIZATION: Avoid unnecessary dict and JSON conversion unless actually needed.
+        # Precompute processed_outputs and processed_logs only if they will be set.
+        processed_outputs = None
+        if outputs:
+            # re-use list/dict comprehension for _convert_to_arize_phoenix_types
+            processed_outputs = {}
+            conv_type = self._convert_to_arize_phoenix_type
+            for key, value in outputs.items():
+                if key is not None:
+                    processed_outputs[str(key)] = conv_type(value)
+            if processed_outputs:
+                child_span.set_attribute(
+                    SpanAttributes.OUTPUT_VALUE, json.dumps(processed_outputs, default=str, ensure_ascii=False)
+                )
+                child_span.set_attribute(SpanAttributes.OUTPUT_MIME_TYPE, OpenInferenceMimeTypeValues.JSON.value)
 
-        logs_dicts = [log if isinstance(log, dict) else log.model_dump() for log in logs]
-        processed_logs = (
-            self._convert_to_arize_phoenix_types({log.get("name"): log for log in logs_dicts}) if logs else {}
-        )
-        if processed_logs:
-            child_span.set_attribute("logs", self._safe_json_dumps(processed_logs))
+        # logs_dicts: evaluating if any log is not a dict, in a single pass via generator+list
+        if logs:
+            # Preconvert all logs in one pass
+            logs_dicts = [log if isinstance(log, dict) else log.model_dump() for log in logs]
+            # Use dictionary comprehension directly for converting logs to Phoenix types
+            processed_logs = {}
+            conv_type = self._convert_to_arize_phoenix_type
+            for log in logs_dicts:
+                log_name = log.get("name")
+                if log_name is not None:
+                    processed_logs[log_name] = conv_type(log)
+            if processed_logs:
+                child_span.set_attribute("logs", json.dumps(processed_logs, default=str, ensure_ascii=False))
 
         self._set_span_status(child_span, error)
         child_span.end(end_time=self._get_current_timestamp())
@@ -338,6 +356,7 @@ class ArizePhoenixTracer(BaseTracer):
     @staticmethod
     def _get_current_timestamp() -> int:
         """Gets the current UTC timestamp in nanoseconds."""
+        # No real optimization here; already as fast as possible
         return int(datetime.now(timezone.utc).timestamp() * 1_000_000_000)
 
     @staticmethod
