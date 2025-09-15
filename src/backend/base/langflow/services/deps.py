@@ -46,9 +46,15 @@ def get_service(service_type: ServiceType, default=None):
     if not service_manager.are_factories_registered():
         # ! This is a workaround to ensure that the service manager is initialized
         # ! Not optimal, but it works for now
-        from langflow.services.manager import ServiceManager
+        global _service_manager_factories
+        try:
+            _service_manager_factories
+        except NameError:
+            from langflow.services.manager import ServiceManager
 
-        service_manager.register_factories(ServiceManager.get_factories())
+            _service_manager_factories = ServiceManager.get_factories()
+        service_manager.register_factories(_service_manager_factories)
+
     return service_manager.get(service_type, default)
 
 
@@ -119,9 +125,12 @@ def get_settings_service() -> SettingsService:
     Raises:
         ValueError: If the service cannot be retrieved or initialized.
     """
-    from lfx.services.settings.factory import SettingsServiceFactory
+    # Singleton instance cache for performance
+    if not hasattr(get_settings_service, "_instance"):
+        from lfx.services.settings.factory import SettingsServiceFactory
 
-    return get_service(ServiceType.SETTINGS_SERVICE, SettingsServiceFactory())
+        get_settings_service._instance = get_service(ServiceType.SETTINGS_SERVICE, SettingsServiceFactory())
+    return get_settings_service._instance
 
 
 def get_db_service() -> DatabaseService:
@@ -179,9 +188,14 @@ def get_cache_service() -> CacheService | AsyncBaseCacheService:
     Returns:
         The cache service instance.
     """
-    from langflow.services.cache.factory import CacheServiceFactory
+    global _cache_service_factory
+    try:
+        _cache_service_factory
+    except NameError:
+        from langflow.services.cache.factory import CacheServiceFactory
 
-    return get_service(ServiceType.CACHE_SERVICE, CacheServiceFactory())
+        _cache_service_factory = CacheServiceFactory()
+    return get_service(ServiceType.CACHE_SERVICE, _cache_service_factory)
 
 
 def get_shared_component_cache_service() -> CacheService:
