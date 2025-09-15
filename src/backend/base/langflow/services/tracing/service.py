@@ -22,6 +22,8 @@ if TYPE_CHECKING:
     from langflow.services.tracing.base import BaseTracer
     from langflow.services.tracing.schema import Log
 
+_LW_TRACER = None
+
 
 def _get_langsmith_tracer():
     from langflow.services.tracing.langsmith import LangSmithTracer
@@ -30,9 +32,12 @@ def _get_langsmith_tracer():
 
 
 def _get_langwatch_tracer():
-    from langflow.services.tracing.langwatch import LangWatchTracer
+    global _LW_TRACER
+    if _LW_TRACER is None:
+        from langflow.services.tracing.langwatch import LangWatchTracer
 
-    return LangWatchTracer
+        _LW_TRACER = LangWatchTracer
+    return _LW_TRACER
 
 
 def _get_langfuse_tracer():
