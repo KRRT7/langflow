@@ -8,13 +8,15 @@ from .starter_projects import (
 
 
 def get_starter_projects_graphs():
-    return [
-        basic_prompting_graph(),
-        blog_writer_graph(),
-        document_qa_graph(),
-        memory_chatbot_graph(),
-        vector_store_rag_graph(),
-    ]
+    if not hasattr(get_starter_projects_graphs, "_cached_graphs"):
+        get_starter_projects_graphs._cached_graphs = [
+            basic_prompting_graph(),
+            blog_writer_graph(),
+            document_qa_graph(),
+            memory_chatbot_graph(),
+            vector_store_rag_graph(),
+        ]
+    return get_starter_projects_graphs._cached_graphs
 
 
 def get_starter_projects_dump():
