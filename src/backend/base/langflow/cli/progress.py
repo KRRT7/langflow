@@ -57,21 +57,19 @@ class ProgressIndicator:
             return
 
         step = self.steps[step_index]
+        animation_chars = self._animation_chars
+        num_chars = len(animation_chars)
 
         while self.running and step["status"] == "running" and not self._stop_animation:
-            # Clear the current line and move cursor to beginning
-            sys.stdout.write("\r")
-
             # Show the animated character
-            animation_char = self._animation_chars[self._animation_index]
+            animation_char = animation_chars[self._animation_index]
 
             # Print the step with animation
-            line = f"{animation_char} {step['title']}..."
-            sys.stdout.write(line)
+            sys.stdout.write(f"\r{animation_char} {step['title']}...")
             sys.stdout.flush()
 
             # Update animation
-            self._animation_index = (self._animation_index + 1) % len(self._animation_chars)
+            self._animation_index = (self._animation_index + 1) % num_chars
 
             time.sleep(0.15)  # Animation speed
 
