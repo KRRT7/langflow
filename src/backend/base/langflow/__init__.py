@@ -22,13 +22,18 @@ class LangflowCompatibilityModule(ModuleType):
 
     def _get_lfx_module(self):
         """Lazily import and cache the lfx module."""
-        if self._lfx_module is None:
+        # Fast path: use sys.modules first to avoid redundant import machinery
+        if self._lfx_module is not None:
+            return self._lfx_module
+        lfx = sys.modules.get(self._lfx_module_name)
+        if lfx is None:
             try:
-                self._lfx_module = importlib.import_module(self._lfx_module_name)
+                lfx = importlib.import_module(self._lfx_module_name)
             except ImportError as e:
                 msg = f"Cannot import {self._lfx_module_name} for backwards compatibility with {self.__name__}"
                 raise ImportError(msg) from e
-        return self._lfx_module
+        self._lfx_module = lfx
+        return lfx
 
     def __getattr__(self, name: str) -> Any:
         """Forward attribute access to the lfx module with caching."""
