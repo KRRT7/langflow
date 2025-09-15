@@ -3,6 +3,20 @@ from typing import Any, TypedDict
 from pydantic import BaseModel as PydanticBaseModel
 from pydantic import ConfigDict, Field, create_model
 
+_field_cache: dict[str, Field] = {}
+
+_type_mapping = {
+    "str": str,
+    "int": int,
+    "float": float,
+    "bool": bool,
+    "boolean": bool,
+    "list": list[Any],
+    "dict": dict[str, Any],
+    "number": float,
+    "text": str,
+}
+
 TRUE_VALUES = ["true", "1", "t", "y", "yes"]
 
 
@@ -18,19 +32,8 @@ class BaseModel(PydanticBaseModel):
 
 
 def _get_type_annotation(type_str: str, *, multiple: bool) -> type:
-    type_mapping = {
-        "str": str,
-        "int": int,
-        "float": float,
-        "bool": bool,
-        "boolean": bool,
-        "list": list[Any],
-        "dict": dict[str, Any],
-        "number": float,
-        "text": str,
-    }
     try:
-        base_type = type_mapping[type_str]
+        base_type = _type_mapping[type_str]
     except KeyError as e:
         msg = f"Invalid type: {type_str}"
         raise ValueError(msg) from e
@@ -48,7 +51,12 @@ def build_model_from_schema(schema: list[SchemaField]) -> type[PydanticBaseModel
         multiple = field.get("multiple", False)
         multiple = coalesce_bool(multiple)
         field_type_annotation = _get_type_annotation(field_type_str, multiple=multiple)
-        fields[field_name] = (field_type_annotation, Field(description=description))
+        if description in _field_cache:
+            field_obj = _field_cache[description]
+        else:
+            field_obj = Field(description=description)
+            _field_cache[description] = field_obj
+        fields[field_name] = (field_type_annotation, field_obj)
     return create_model("OutputModel", **fields)
 
 
