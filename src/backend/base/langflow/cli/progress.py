@@ -25,17 +25,20 @@ class ProgressIndicator:
         self._stop_animation = False
         self._animation_thread: threading.Thread | None = None
 
-        # Use Windows-safe characters on Windows to prevent encoding issues
         if platform.system() == "Windows":
-            self._animation_chars = ["-", "\\", "|", "/"]  # ASCII spinner
-            self._success_icon = "+"  # ASCII plus sign
-            self._failure_icon = "x"  # ASCII x
-            self._farewell_emoji = ":)"  # ASCII smiley
+            self._animation_chars = ["-", "\\", "|", "/"]
+            self._success_icon = "+"
+            self._failure_icon = "x"
+            self._farewell_emoji = ":)"
+            self._stylized_success_icon = click.style("+", fg="green", bold=True)
+            self._stylized_failure_icon = click.style("x", fg="red", bold=True)
         else:
-            self._animation_chars = ["□", "▢", "▣", "■"]  # Unicode squares
-            self._success_icon = "✓"  # Unicode checkmark
-            self._failure_icon = "✗"  # Unicode cross
-            self._farewell_emoji = "👋"  # Unicode wave
+            self._animation_chars = ["□", "▢", "▣", "■"]
+            self._success_icon = "✓"
+            self._failure_icon = "✗"
+            self._farewell_emoji = "👋"
+            self._stylized_success_icon = click.style("✓", fg="green", bold=True)
+            self._stylized_failure_icon = click.style("✗", fg="red", bold=True)
 
         self._animation_index = 0
 
@@ -100,29 +103,32 @@ class ProgressIndicator:
 
         step = self.steps[step_index]
         step["status"] = "completed" if success else "failed"
-        step["end_time"] = time.time()
+        end_time = time.time()
+        step["end_time"] = end_time
 
-        # Stop animation
         self._stop_animation = True
-        if self._animation_thread and self._animation_thread.is_alive():
-            self._animation_thread.join(timeout=0.5)
+        anim_thread = self._animation_thread
+        if anim_thread and anim_thread.is_alive():
+            anim_thread.join(timeout=0.5)
 
         self.running = False
 
-        # Clear the current line and print final result
         sys.stdout.write("\r")
 
+        verbose = self.verbose
+        start_time = step.get("start_time")
+        duration = ""
+        # Assign correct icon and colors, only style once (style is expensive!)
         if success:
-            icon = click.style(self._success_icon, fg="green", bold=True)
+            icon = self._stylized_success_icon
             title = click.style(step["title"], fg="green")
         else:
-            icon = click.style(self._failure_icon, fg="red", bold=True)
+            icon = self._stylized_failure_icon
             title = click.style(step["title"], fg="red")
-
-        duration = ""
-        if step["start_time"] and step["end_time"]:
-            elapsed = step["end_time"] - step["start_time"]
-            if self.verbose and elapsed > MIN_DURATION_THRESHOLD:  # Only show duration if verbose and > 100ms
+        # Compute duration string only if eligible
+        if start_time and end_time:
+            elapsed = end_time - start_time
+            if verbose and elapsed > MIN_DURATION_THRESHOLD:
                 duration = click.style(f" ({elapsed:.2f}s)", fg="bright_black")
 
         line = f"{icon} {title}{duration}"
