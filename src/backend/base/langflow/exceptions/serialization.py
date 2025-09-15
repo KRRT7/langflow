@@ -25,7 +25,9 @@ class SerializationError(HTTPException):
         if isinstance(errors, list):
             for error in errors:
                 if isinstance(error, TypeError):
-                    if "'coroutine'" in str(error):
+                    error_str = str(error)
+                    # Single str conversion and if-substring check optimized
+                    if "'coroutine'" in error_str:
                         return cls(
                             detail=(
                                 "The component contains async functions that need to be awaited. Please add 'await' "
@@ -34,7 +36,7 @@ class SerializationError(HTTPException):
                             original_error=exc,
                             data=data,
                         )
-                    if "vars()" in str(error):
+                    if "vars()" in error_str:
                         return cls(
                             detail=(
                                 "The component contains objects that cannot be converted to JSON. Please ensure all "
