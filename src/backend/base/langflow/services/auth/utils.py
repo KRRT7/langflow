@@ -507,7 +507,7 @@ async def authenticate_user(username: str, password: str, db: AsyncSession) -> U
 
 def add_padding(s):
     # Calculate the number of padding characters needed
-    padding_needed = 4 - len(s) % 4
+    padding_needed = (-len(s)) % 4
     return s + "=" * padding_needed
 
 
@@ -517,7 +517,10 @@ def ensure_valid_key(s: str) -> bytes:
         # Use the input as a seed for the random number generator
         random.seed(s)
         # Generate 32 random bytes
-        key = bytes(random.getrandbits(8) for _ in range(32))
+        getbyte = random.getrandbits
+        key = bytearray(32)
+        for i in range(32):
+            key[i] = getbyte(8)
         key = base64.urlsafe_b64encode(key)
     else:
         key = add_padding(s).encode()
