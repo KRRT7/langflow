@@ -117,8 +117,10 @@ class LangWatchTracer(BaseTracer):
     ) -> None:
         if not self._ready:
             return
-        if self.spans.get(trace_id):
-            self.spans[trace_id].end(output=self._convert_to_langwatch_types(outputs), error=error)
+        span = self.spans.get(trace_id)
+        if span is not None:
+            output = self._convert_to_langwatch_types(outputs) if outputs else None
+            span.end(output=output, error=error)
 
     def end(
         self,
@@ -149,9 +151,7 @@ class LangWatchTracer(BaseTracer):
 
         if io_dict is None:
             return None
-        converted = {}
-        for key, value in io_dict.items():
-            converted[key] = self._convert_to_langwatch_type(value)
+        converted = {key: self._convert_to_langwatch_type(value) for key, value in io_dict.items()}
         return autoconvert_typed_values(converted)
 
     def _convert_to_langwatch_type(self, value):
