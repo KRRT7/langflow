@@ -5,7 +5,7 @@ import types
 from typing import TYPE_CHECKING, Any
 
 from langchain_core.documents import Document
-from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
+from langchain_core.messages import BaseMessage
 from lfx.log.logger import logger
 from typing_extensions import override
 
@@ -200,10 +200,10 @@ class OpikTracer(BaseTracer):
 
     def _convert_to_opik_type(self, value):
         """Recursively converts a value to a Opik compatible type."""
-        if isinstance(value, dict):
+        if type(value) is dict:
             value = {key: self._convert_to_opik_type(val) for key, val in value.items()}
 
-        elif isinstance(value, list):
+        elif type(value) is list:
             value = [self._convert_to_opik_type(v) for v in value]
 
         elif isinstance(value, Message):
@@ -212,13 +212,13 @@ class OpikTracer(BaseTracer):
         elif isinstance(value, Data):
             value = value.get_text()
 
-        elif isinstance(value, (BaseMessage | HumanMessage | SystemMessage)):
+        elif isinstance(value, BaseMessage):
             value = value.content
 
         elif isinstance(value, Document):
             value = value.page_content
 
-        elif isinstance(value, (types.GeneratorType | types.NoneType)):
+        elif type(value) is types.GeneratorType or type(value) is types.NoneType:
             value = str(value)
 
         return value
