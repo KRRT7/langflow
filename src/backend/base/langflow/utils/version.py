@@ -3,12 +3,14 @@ from importlib import metadata
 import httpx
 from packaging import version as pkg_version
 
+prerelease_keywords = ["a", "b", "rc", "dev", "post"]
+
 
 def _compute_non_prerelease_version(prerelease_version: str) -> str:
-    prerelease_keywords = ["a", "b", "rc", "dev", "post"]
     for keyword in prerelease_keywords:
-        if keyword in prerelease_version:
-            return prerelease_version.split(keyword)[0][:-1]
+        index = prerelease_version.find(keyword)
+        if index != -1:
+            return prerelease_version[:index][:-1]
     return prerelease_version
 
 
