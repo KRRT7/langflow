@@ -2,28 +2,25 @@ from typing import Any
 
 from lfx.schema.data import Data
 
+from langflow.schema.message import Message
+
 
 def convert_to_langchain_type(value):
-    from langflow.schema.message import Message
-
-    if isinstance(value, dict):
+    if type(value) is dict:
         value = {key: convert_to_langchain_type(val) for key, val in value.items()}
-    elif isinstance(value, list):
+    elif type(value) is list:
         value = [convert_to_langchain_type(v) for v in value]
-    elif isinstance(value, Message):
+    elif type(value) is Message:
         if "prompt" in value:
             value = value.load_lc_prompt()
         elif value.sender:
             value = value.to_lc_message()
         else:
             value = value.to_lc_document()
-    elif isinstance(value, Data):
+    elif type(value) is Data:
         value = value.to_lc_document() if "text" in value.data else value.data
     return value
 
 
 def convert_to_langchain_types(io_dict: dict[str, Any]):
-    converted = {}
-    for key, value in io_dict.items():
-        converted[key] = convert_to_langchain_type(value)
-    return converted
+    return {key: convert_to_langchain_type(value) for key, value in io_dict.items()}
