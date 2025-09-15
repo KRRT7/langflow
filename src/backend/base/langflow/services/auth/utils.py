@@ -24,6 +24,8 @@ from langflow.services.deps import get_db_service, get_session, get_settings_ser
 if TYPE_CHECKING:
     from langflow.services.database.models.api_key.model import ApiKey
 
+_fernet_cache = {}
+
 oauth2_login = OAuth2PasswordBearer(tokenUrl="api/v1/login", auto_error=False)
 
 API_KEY_NAME = "x-api-key"
@@ -507,7 +509,7 @@ async def authenticate_user(username: str, password: str, db: AsyncSession) -> U
 
 def add_padding(s):
     # Calculate the number of padding characters needed
-    padding_needed = 4 - len(s) % 4
+    padding_needed = (-len(s)) % 4
     return s + "=" * padding_needed
 
 
@@ -526,8 +528,12 @@ def ensure_valid_key(s: str) -> bytes:
 
 def get_fernet(settings_service: SettingsService):
     secret_key: str = settings_service.auth_settings.SECRET_KEY.get_secret_value()
+    if secret_key in _fernet_cache:
+        return _fernet_cache[secret_key]
     valid_key = ensure_valid_key(secret_key)
-    return Fernet(valid_key)
+    fernet = Fernet(valid_key)
+    _fernet_cache[secret_key] = fernet
+    return fernet
 
 
 def encrypt_api_key(api_key: str, settings_service: SettingsService):
