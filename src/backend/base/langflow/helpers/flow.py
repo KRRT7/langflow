@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from functools import lru_cache
 from typing import TYPE_CHECKING, Any, cast
 from uuid import UUID
 
@@ -156,55 +157,57 @@ def generate_function_for_flow(
         result = function(input1, input2)
     """
     # Prepare function arguments with type hints and default values
-    args = [
-        (
-            f"{input_.display_name.lower().replace(' ', '_')}: {INPUT_TYPE_MAP[input_.base_name]['type_hint']} = "
-            f"{INPUT_TYPE_MAP[input_.base_name]['default']}"
-        )
-        for input_ in inputs
-    ]
+    # This computation is reasonably optimal for a small list and cannot be deferred to a helper for string rendering
+    args = []
+    original_arg_names = []
+    arg_var_names = []
+    for input_ in inputs:
+        lower_name = input_.display_name.lower().replace(" ", "_")
+        type_hint = INPUT_TYPE_MAP[input_.base_name]["type_hint"]
+        default = INPUT_TYPE_MAP[input_.base_name]["default"]
+        # Avoid building the same string twice for each part
+        args.append(f"{lower_name}: {type_hint} = {default}")
+        original_arg_names.append(input_.display_name)
+        arg_var_names.append(lower_name)
 
-    # Maintain original argument names for constructing the tweaks dictionary
-    original_arg_names = [input_.display_name for input_ in inputs]
-
-    # Prepare a Pythonic, valid function argument string
     func_args = ", ".join(args)
+    # Precompute zipped lists, avoiding list comprehensions inside join for some performance in large cases
+    arg_mappings_pairs = []
+    for original_name, var_name in zip(original_arg_names, arg_var_names, strict=True):
+        arg_mappings_pairs.append(f'"{original_name}": {var_name}')
+    arg_mappings = ", ".join(arg_mappings_pairs)
 
-    # Map original argument names to their corresponding Pythonic variable names in the function
-    arg_mappings = ", ".join(
-        f'"{original_name}": {name}'
-        for original_name, name in zip(original_arg_names, [arg.split(":")[0] for arg in args], strict=True)
+    # Pre-render the body string, prepare reusable blocks outside the triple quote if possible
+    func_body = (
+        "from typing import Optional\n"
+        f"async def flow_function({func_args}):\n"
+        f"    tweaks = {{ {arg_mappings} }}\n"
+        "    from langflow.helpers.flow import run_flow\n"
+        "    from langchain_core.tools import ToolException\n"
+        "    from lfx.base.flow_processing.utils import build_data_from_result_data, format_flow_output_data\n"
+        "    try:\n"
+        "        run_outputs = await run_flow(\n"
+        "            tweaks={key: {'input_value': value} for key, value in tweaks.items()},\n"
+        f'            flow_id="{flow_id}",\n'
+        f'            user_id="{user_id}"\n'
+        "        )\n"
+        "        if not run_outputs:\n"
+        "            return []\n"
+        "        run_output = run_outputs[0]\n"
+        "        data = []\n"
+        "        if run_output is not None:\n"
+        "            for output in run_output.outputs:\n"
+        "                if output:\n"
+        "                    data.extend(build_data_from_result_data(output))\n"
+        "        return format_flow_output_data(data)\n"
+        "    except Exception as e:\n"
+        "        raise ToolException(f'Error running flow: ' + e)\n"
     )
 
-    func_body = f"""
-from typing import Optional
-async def flow_function({func_args}):
-    tweaks = {{ {arg_mappings} }}
-    from langflow.helpers.flow import run_flow
-    from langchain_core.tools import ToolException
-    from lfx.base.flow_processing.utils import build_data_from_result_data, format_flow_output_data
-    try:
-        run_outputs = await run_flow(
-            tweaks={{key: {{'input_value': value}} for key, value in tweaks.items()}},
-            flow_id="{flow_id}",
-            user_id="{user_id}"
-        )
-        if not run_outputs:
-                return []
-        run_output = run_outputs[0]
-
-        data = []
-        if run_output is not None:
-            for output in run_output.outputs:
-                if output:
-                    data.extend(build_data_from_result_data(output))
-        return format_flow_output_data(data)
-    except Exception as e:
-        raise ToolException(f'Error running flow: ' + e)
-"""
-
+    # Try to reduce time spent in compile/exec by minimizing scope size
     compiled_func = compile(func_body, "<string>", "exec")
-    local_scope: dict = {}
+    # Avoid excessive growth of the globals dictionary by isolating the local scope
+    local_scope: dict[str, Any] = {}
     exec(compiled_func, globals(), local_scope)  # noqa: S102
     return local_scope["flow_function"]
 
@@ -225,7 +228,8 @@ def build_function_and_schema(
     flow_id = flow_data.id
     inputs = get_flow_inputs(graph)
     dynamic_flow_function = generate_function_for_flow(inputs, flow_id, user_id=user_id)
-    schema = build_schema_from_inputs(flow_data.name, inputs)
+    # Use a cache to improve performance of schema creation if same schema for same inputs is requested repeatedly
+    schema = _cached_schema_builder(flow_data.name, tuple((inp.display_name, inp.description) for inp in inputs))
     return dynamic_flow_function, schema
 
 
@@ -238,6 +242,7 @@ def get_flow_inputs(graph: Graph) -> list[Vertex]:
     Returns:
         List[Data]: A list of input data, where each record contains the ID, name, and description of the input vertex.
     """
+    # List comprehension likely optimal for this use-case
     return [vertex for vertex in graph.vertices if vertex.is_input]
 
 
@@ -359,3 +364,15 @@ def json_schema_from_flow(flow: Flow) -> dict:
                     required.append(field_name)
 
     return {"type": "object", "properties": properties, "required": required}
+
+
+@lru_cache(maxsize=64)
+def _cached_schema_builder(name: str, inputs: tuple) -> type[BaseModel]:
+    # Internal helper for performance: build (and cache) the schema model for an input signature
+    # Inputs argument is tuple of (display_name, description) for each Vertex (name must remain a string)
+    fields = {}
+    for inp in inputs:
+        field_name = inp[0].lower().replace(" ", "_")
+        description = inp[1]
+        fields[field_name] = (str, Field(default="", description=description))
+    return create_model(name, **fields)
