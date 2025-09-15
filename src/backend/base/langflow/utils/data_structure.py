@@ -84,24 +84,27 @@ def analyze_value(
         return f"max_depth_reached(depth={max_depth})"
 
     try:
-        if isinstance(value, list | tuple | set):
+        if isinstance(value, (list, tuple, set)):
             length = len(value)
             if length == 0:
                 return "list(unknown)"
 
-            type_info = infer_list_type(list(value))
+            # Use sequence directly if already a list, else convert only if needed
+            items_seq = value if isinstance(value, list) else list(value)
+            type_info = infer_list_type(items_seq)
             size_info = f"[size={length}]" if size_hints else ""
 
-            # For lists of complex objects, include a sample of the structure
+            # For lists/tuples of complex objects, include a sample of the structure
             if (
                 include_samples
                 and length > 0
-                and isinstance(value, list | tuple)
-                and isinstance(value[0], dict | list)
+                and isinstance(value, (list, tuple))
+                # Avoid fetching value[0] for sets
+                and isinstance(items_seq[0], (dict, list))
                 and current_depth < max_depth - 1
             ):
                 sample = analyze_value(
-                    value[0],
+                    items_seq[0],
                     max_depth,
                     current_depth + 1,
                     f"{path}[0]",
@@ -113,8 +116,10 @@ def analyze_value(
             return f"{type_info}{size_info}"
 
         if isinstance(value, dict):
-            result = {}
-            for k, v in value.items():
+            # Pre-allocate dictionary to avoid repeated growth
+            items = value.items()
+            result = dict.fromkeys(value.keys())
+            for k, v in items:
                 new_path = f"{path}.{k}" if path else k
                 try:
                     result[k] = analyze_value(
@@ -205,8 +210,11 @@ def get_data_structure(
 
 def get_sample_values(data: Any, max_items: int = 3) -> Any:
     """Get sample values from a data structure, handling nested structures."""
-    if isinstance(data, list | tuple | set):
-        return [get_sample_values(item) for item in list(data)[:max_items]]
+    # Use list conversion only if not already a list
+    if isinstance(data, (list, tuple, set)):
+        seq = data if isinstance(data, list) else list(data)
+        return [get_sample_values(item) for item in seq[:max_items]]
     if isinstance(data, dict):
+        # Dictionary comprehension for slightly better memory efficiency
         return {k: get_sample_values(v, max_items) for k, v in data.items()}
     return data
