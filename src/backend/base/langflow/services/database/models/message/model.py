@@ -153,12 +153,16 @@ class MessageTable(MessageBase, table=True):  # type: ignore[call-arg]
     @field_serializer("properties", "content_blocks")
     @classmethod
     def serialize_properties_or_content_blocks(cls, value) -> dict | list[dict]:
-        if isinstance(value, list):
-            return [cls.serialize_properties_or_content_blocks(item) for item in value]
-        if hasattr(value, "model_dump"):
-            return value.model_dump()
+        if isinstance(value, dict):
+            return value
         if isinstance(value, str):
             return json.loads(value)
+        if hasattr(value, "model_dump"):
+            return value.model_dump()
+        if isinstance(value, list):
+            if all(isinstance(item, dict) for item in value):
+                return value
+            return [cls.serialize_properties_or_content_blocks(item) for item in value]
         return value
 
 
