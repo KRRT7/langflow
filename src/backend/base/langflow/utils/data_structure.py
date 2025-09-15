@@ -43,17 +43,19 @@ def get_type_str(value: Any) -> str:
         return "float"
     if isinstance(value, str):
         # Check if string is actually a date/datetime
-        if any(date_pattern in value.lower() for date_pattern in ["date", "time", "yyyy", "mm/dd", "dd/mm", "yyyy-mm"]):
-            return "str(possible_date)"
+        lv = value.lower()
+        for date_pattern in ("date", "time", "yyyy", "mm/dd", "dd/mm", "yyyy-mm"):
+            if date_pattern in lv:
+                return "str(possible_date)"
         # Check if it's a JSON string
         try:
             json.loads(value)
             return "str(json)"
-        except (json.JSONDecodeError, TypeError):
+        except json.JSONDecodeError:
             pass
         else:
             return "str"
-    if isinstance(value, list | tuple | set):
+    if isinstance(value, (list, tuple, set)):
         return infer_list_type(list(value))
     if isinstance(value, dict):
         return "dict"
