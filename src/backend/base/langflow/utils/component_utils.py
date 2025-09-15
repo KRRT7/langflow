@@ -70,10 +70,14 @@ def set_multiple_field_display(
     """Set display property for multiple fields at once."""
     if fields is not None:
         for field, visibility in fields.items():
-            build_config = set_field_display(build_config, field, value=visibility)
+            d = build_config.get(field)
+            if isinstance(d, dict) and "show" in d:
+                d["show"] = visibility
     elif field_list is not None:
         for field in field_list:
-            build_config = set_field_display(build_config, field, value=value)
+            d = build_config.get(field)
+            if isinstance(d, dict) and "show" in d:
+                d["show"] = value
     return build_config
 
 
