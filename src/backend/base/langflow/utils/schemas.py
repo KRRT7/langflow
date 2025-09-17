@@ -34,6 +34,8 @@ class ChatOutputResponse(BaseModel):
         if not files:
             return files
 
+        file_types = set(TEXT_FILE_TYPES + IMG_FILE_TYPES)
+
         for file in files:
             if not isinstance(file, dict):
                 msg = "Files must be a list of dictionaries."
@@ -49,13 +51,12 @@ class ChatOutputResponse(BaseModel):
 
                 name = file.get("name")
                 if not name:
-                    name = path.split("/")[-1]
+                    name = path.rsplit("/", 1)[-1]
                     file["name"] = name
                 type_ = file.get("type")
                 if not type_:
                     # get the file type from the path
-                    extension = path.split(".")[-1]
-                    file_types = set(TEXT_FILE_TYPES + IMG_FILE_TYPES)
+                    extension = path.rsplit(".", 1)[-1]
                     if extension and extension in file_types:
                         type_ = extension
                     else:
