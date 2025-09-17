@@ -271,6 +271,10 @@ def serialize(
     if obj is None:
         return None
     try:
+        # Fast path for common primitive types
+        if isinstance(obj, (str, int, float, bool)):
+            return obj
+
         # First try type-specific serialization
         result = _serialize_dispatcher(obj, max_length, max_items)
         if result is not UNSERIALIZABLE_SENTINEL:  # Special check for None since it's a valid result
