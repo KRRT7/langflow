@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING
 
 from lfx.log.logger import logger
+from lfx.services.settings.factory import SettingsServiceFactory
 
 from langflow.services.schema import ServiceType
 
@@ -13,7 +14,8 @@ if TYPE_CHECKING:
     from lfx.services.settings.service import SettingsService
     from sqlmodel.ext.asyncio.session import AsyncSession
 
-    from langflow.services.cache.service import AsyncBaseCacheService, CacheService
+    from langflow.services.cache.service import (AsyncBaseCacheService,
+                                                 CacheService)
     from langflow.services.chat.service import ChatService
     from langflow.services.database.service import DatabaseService
     from langflow.services.job_queue.service import JobQueueService
@@ -25,6 +27,8 @@ if TYPE_CHECKING:
     from langflow.services.telemetry.service import TelemetryService
     from langflow.services.tracing.service import TracingService
     from langflow.services.variable.service import VariableService
+
+_settings_service_factory = SettingsServiceFactory()
 
 
 def get_service(service_type: ServiceType, default=None):
@@ -119,9 +123,14 @@ def get_settings_service() -> SettingsService:
     Raises:
         ValueError: If the service cannot be retrieved or initialized.
     """
-    from lfx.services.settings.factory import SettingsServiceFactory
+    # Singleton instance cache for performance
+    if not hasattr(get_settings_service, "_instance"):
+        # Use the pre-instantiated factory to avoid creating multiple instances
+        from langflow.services.deps import \
+            get_service  # Must remain inside function to avoid circular import
 
-    return get_service(ServiceType.SETTINGS_SERVICE, SettingsServiceFactory())
+        get_settings_service._instance = get_service(ServiceType.SETTINGS_SERVICE, _settings_service_factory)
+    return get_settings_service._instance
 
 
 def get_db_service() -> DatabaseService:
@@ -190,7 +199,8 @@ def get_shared_component_cache_service() -> CacheService:
     Returns:
         The cache service instance.
     """
-    from langflow.services.shared_component_cache.factory import SharedComponentCacheServiceFactory
+    from langflow.services.shared_component_cache.factory import \
+        SharedComponentCacheServiceFactory
 
     return get_service(ServiceType.SHARED_COMPONENT_CACHE_SERVICE, SharedComponentCacheServiceFactory())
 
