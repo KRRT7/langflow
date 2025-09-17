@@ -141,9 +141,12 @@ def _truncate_value(value: Any, max_length: int | None, max_items: int | None) -
 def _serialize_dataframe(obj: pd.DataFrame, max_length: int | None, max_items: int | None) -> list[dict]:
     """Serialize pandas DataFrame to a dictionary format."""
     if max_items is not None and len(obj) > max_items:
-        obj = obj.head(max_items)
+        data = obj.iloc[:max_items].to_dict(orient="records")
+    else:
+        data = obj.to_dict(orient="records")
 
-    data = obj.to_dict(orient="records")
+    if max_length is None and max_items is None:
+        return data
 
     return serialize(data, max_length, max_items)
 
@@ -270,6 +273,7 @@ def serialize(
     """
     if obj is None:
         return None
+
     try:
         # First try type-specific serialization
         result = _serialize_dispatcher(obj, max_length, max_items)
@@ -278,7 +282,7 @@ def serialize(
 
         # Handle class-based Pydantic types and other types
         if isinstance(obj, type):
-            if issubclass(obj, BaseModel | BaseModelV1):
+            if issubclass(obj, (BaseModel, BaseModelV1)):
                 return repr(obj)
             return str(obj)  # Handle other class types
 
@@ -302,6 +306,7 @@ def serialize(
     except Exception as e:  # noqa: BLE001
         logger.debug(f"Cannot serialize object {obj}: {e!s}")
         return "[Unserializable Object]"
+
     return obj
 
 
