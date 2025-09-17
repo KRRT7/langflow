@@ -12,7 +12,10 @@ def table_exists(name, conn):
     bool: True if the table exists, False otherwise.
     """
     inspector = sa.inspect(conn)
-    return name in inspector.get_table_names()
+    cache_attr = "_cf_table_names"
+    if not hasattr(inspector.bind, cache_attr):
+        setattr(inspector.bind, cache_attr, inspector.get_table_names())
+    return name in getattr(inspector.bind, cache_attr)
 
 
 def column_exists(table_name, column_name, conn):
