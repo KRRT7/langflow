@@ -100,6 +100,9 @@ def _serialize_pydantic_v1(obj: BaseModelV1, max_length: int | None, max_items: 
     """Backwards-compatible handling for Pydantic v1 models."""
     if hasattr(obj, "to_json"):
         return serialize(obj.to_json(), max_length, max_items)
+    # Optimization: avoid recursive serialization when no truncation is needed
+    if max_length is None and max_items is None:
+        return obj.dict()
     return serialize(obj.dict(), max_length, max_items)
 
 
