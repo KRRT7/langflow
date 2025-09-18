@@ -119,9 +119,12 @@ def get_settings_service() -> SettingsService:
     Raises:
         ValueError: If the service cannot be retrieved or initialized.
     """
-    from lfx.services.settings.factory import SettingsServiceFactory
+    # Singleton instance cache for performance
+    if not hasattr(get_settings_service, "_instance"):
+        from lfx.services.settings.factory import SettingsServiceFactory
 
-    return get_service(ServiceType.SETTINGS_SERVICE, SettingsServiceFactory())
+        get_settings_service._instance = get_service(ServiceType.SETTINGS_SERVICE, SettingsServiceFactory())
+    return get_settings_service._instance
 
 
 def get_db_service() -> DatabaseService:

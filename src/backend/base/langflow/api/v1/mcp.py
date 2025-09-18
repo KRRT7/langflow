@@ -30,7 +30,11 @@ MAX_RETRIES = 2
 
 
 def get_enable_progress_notifications() -> bool:
-    return get_settings_service().settings.mcp_server_enable_progress_notifications
+    if not hasattr(get_enable_progress_notifications, "_value"):
+        get_enable_progress_notifications._value = (
+            get_settings_service().settings.mcp_server_enable_progress_notifications
+        )
+    return get_enable_progress_notifications._value
 
 
 @server.list_prompts()
