@@ -144,7 +144,10 @@ class CacheService(Subject, Service):
         Returns:
             The last added item in the cache.
         """
-        return list(self.current_cache.values())[-1]
+        try:
+            return next(reversed(self.current_cache.values()))
+        except StopIteration:
+            raise IndexError("current_cache is empty")
 
 
 cache_service = CacheService()
