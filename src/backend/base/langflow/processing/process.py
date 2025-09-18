@@ -145,22 +145,23 @@ def apply_tweaks(node: dict[str, Any], node_tweaks: dict[str, Any]) -> None:
         return
 
     for tweak_name, tweak_value in node_tweaks.items():
-        if tweak_name not in template_data:
+        td_item = template_data.get(tweak_name)
+        if td_item is None:
             continue
         if tweak_name == "code":
             logger.warning("Security: Code field cannot be overridden via tweaks.")
             continue
-        if tweak_name in template_data:
-            if template_data[tweak_name]["type"] == "NestedDict":
-                value = validate_and_repair_json(tweak_value)
-                template_data[tweak_name]["value"] = value
-            elif isinstance(tweak_value, dict):
-                for k, v in tweak_value.items():
-                    k_ = "file_path" if template_data[tweak_name]["type"] == "file" else k
-                    template_data[tweak_name][k_] = v
-            else:
-                key = "file_path" if template_data[tweak_name]["type"] == "file" else "value"
-                template_data[tweak_name][key] = tweak_value
+
+        td_type = td_item.get("type")
+        if td_type == "NestedDict":
+            td_item["value"] = validate_and_repair_json(tweak_value)
+        elif isinstance(tweak_value, dict):
+            for k, v in tweak_value.items():
+                k_ = "file_path" if td_type == "file" else k
+                td_item[k_] = v
+        else:
+            key = "file_path" if td_type == "file" else "value"
+            td_item[key] = tweak_value
 
 
 def apply_tweaks_on_vertex(vertex: Vertex, node_tweaks: dict[str, Any]) -> None:
