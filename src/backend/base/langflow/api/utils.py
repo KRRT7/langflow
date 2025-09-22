@@ -213,15 +213,25 @@ async def build_and_cache_graph_from_data(
 
 def format_syntax_error_message(exc: SyntaxError) -> str:
     """Format a SyntaxError message for returning to the frontend."""
-    if exc.text is None:
-        return f"Syntax error in code. Error on line {exc.lineno}"
-    return f"Syntax error in code. Error on line {exc.lineno}: {exc.text.strip()}"
+    lineno = exc.lineno
+    text = exc.text
+    if text is None:
+        return f"Syntax error in code. Error on line {lineno}"
+    if text and (text[0].isspace() or text[-1].isspace()):
+        # Only strip if needed
+        stripped = text.strip()
+    else:
+        stripped = text
+    return f"Syntax error in code. Error on line {lineno}: {stripped}"
 
 
 def get_causing_exception(exc: BaseException) -> BaseException:
     """Get the causing exception from an exception."""
-    if hasattr(exc, "__cause__") and exc.__cause__:
-        return get_causing_exception(exc.__cause__)
+    # Iterative approach to avoid recursion overhead
+    cause = getattr(exc, "__cause__", None)
+    while cause:
+        exc = cause
+        cause = getattr(exc, "__cause__", None)
     return exc
 
 
@@ -316,9 +326,14 @@ def custom_params(
     page: int | None = Query(None),
     size: int | None = Query(None),
 ):
+    # Precompute conditions to avoid repeat checks and dict creation
     if page is None and size is None:
         return None
-    return Params(page=page or MIN_PAGE_SIZE, size=size or MAX_PAGE_SIZE)
+
+    # Use local variables for default values to avoid attribute lookup at call
+    p = page if page is not None else MIN_PAGE_SIZE
+    s = size if size is not None else MAX_PAGE_SIZE
+    return Params(page=p, size=s)
 
 
 async def verify_public_flow_and_get_user(flow_id: uuid.UUID, client_id: str | None) -> tuple[User, uuid.UUID]:
