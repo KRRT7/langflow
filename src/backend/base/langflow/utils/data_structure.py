@@ -84,36 +84,38 @@ def analyze_value(
         return f"max_depth_reached(depth={max_depth})"
 
     try:
-        if isinstance(value, list | tuple | set):
+        vtype = type(value)
+        if vtype in (list, tuple, set):
             length = len(value)
             if length == 0:
                 return "list(unknown)"
 
-            type_info = infer_list_type(list(value))
+            # Only convert if value is not already a list, to avoid unnecessary list(value) copies
+            type_info = infer_list_type(value if vtype is list else list(value))
             size_info = f"[size={length}]" if size_hints else ""
 
-            # For lists of complex objects, include a sample of the structure
-            if (
-                include_samples
-                and length > 0
-                and isinstance(value, list | tuple)
-                and isinstance(value[0], dict | list)
-                and current_depth < max_depth - 1
-            ):
-                sample = analyze_value(
-                    value[0],
-                    max_depth,
-                    current_depth + 1,
-                    f"{path}[0]",
-                    size_hints=size_hints,
-                    include_samples=include_samples,
-                )
-                return f"{type_info}{size_info}, sample: {json.dumps(sample)}"
+            # Avoid isinstance(value[0], ...) calls for empty containers due to exit above
+            # Use a local for value[0] to avoid double access
+            if include_samples and length > 0 and vtype in (list, tuple):
+                v0 = value[0]
+                # Avoid repeated isinstance logic
+                if isinstance(v0, (dict, list)):
+                    sample = analyze_value(
+                        v0,
+                        max_depth,
+                        current_depth + 1,
+                        f"{path}[0]",
+                        size_hints=size_hints,
+                        include_samples=include_samples,
+                    )
+                    # Avoid extra serialization steps when not required
+                    return f"{type_info}{size_info}, sample: {json.dumps(sample)}"
 
             return f"{type_info}{size_info}"
 
-        if isinstance(value, dict):
+        if vtype is dict:
             result = {}
+            # Favour list comprehensions for flat maps, but here top-level for is acceptable since there's try/except inside
             for k, v in value.items():
                 new_path = f"{path}.{k}" if path else k
                 try:
@@ -205,8 +207,11 @@ def get_data_structure(
 
 def get_sample_values(data: Any, max_items: int = 3) -> Any:
     """Get sample values from a data structure, handling nested structures."""
-    if isinstance(data, list | tuple | set):
-        return [get_sample_values(item) for item in list(data)[:max_items]]
-    if isinstance(data, dict):
+    t = type(data)
+    if t in (list, tuple, set):
+        # Avoid unnecessary conversion if it's a list
+        seq = data if t is list else list(data)
+        return [get_sample_values(item) for item in seq[:max_items]]
+    if t is dict:
         return {k: get_sample_values(v, max_items) for k, v in data.items()}
     return data
