@@ -4,6 +4,8 @@ from typing import Any
 
 from langflow.schema.data import Data
 
+_DATE_PATTERNS_LC = ("date", "time", "yyyy", "mm/dd", "dd/mm", "yyyy-mm")
+
 
 def infer_list_type(items: list, max_samples: int = 5) -> str:
     """Infer the type of a list by sampling its items.
@@ -43,17 +45,23 @@ def get_type_str(value: Any) -> str:
         return "float"
     if isinstance(value, str):
         # Check if string is actually a date/datetime
-        if any(date_pattern in value.lower() for date_pattern in ["date", "time", "yyyy", "mm/dd", "dd/mm", "yyyy-mm"]):
-            return "str(possible_date)"
+        value_lower = value.lower()
+        for date_pattern in _DATE_PATTERNS_LC:
+            if date_pattern in value_lower:
+                return "str(possible_date)"
         # Check if it's a JSON string
-        try:
-            json.loads(value)
-            return "str(json)"
-        except (json.JSONDecodeError, TypeError):
-            pass
+        stripped = value.strip()
+        if stripped and stripped[0] in '{"[':
+            try:
+                json.loads(value)
+                return "str(json)"
+            except (json.JSONDecodeError, TypeError):
+                pass
         else:
             return "str"
     if isinstance(value, list | tuple | set):
+        if type(value) is list:
+            return infer_list_type(value)
         return infer_list_type(list(value))
     if isinstance(value, dict):
         return "dict"
