@@ -1,8 +1,9 @@
 import json
-from collections import Counter
 from typing import Any
 
 from langflow.schema.data import Data
+
+_DATE_PATTERNS = ("date", "time", "yyyy", "mm/dd", "dd/mm", "yyyy-mm")
 
 
 def infer_list_type(items: list, max_samples: int = 5) -> str:
@@ -15,16 +16,19 @@ def infer_list_type(items: list, max_samples: int = 5) -> str:
 
     # Sample items (use all if less than max_samples)
     samples = items[:max_samples]
+    # Inline simple logic for smaller sample lists
     types = [get_type_str(item) for item in samples]
 
     # Count type occurrences
-    type_counter = Counter(types)
-
-    if len(type_counter) == 1:
-        # Single type
+    if len(types) == 1:
         return f"list({types[0]})"
-    # Mixed types - show all found types
-    type_str = "|".join(sorted(type_counter.keys()))
+    # More efficient Counter alternative for deterministic result
+    uniq_types = set(types)
+    if len(uniq_types) == 1:
+        # Single type (rare if sample > 1, but still possible)
+        return f"list({types[0]})"
+    # Mixed types - show all found types, deterministic order
+    type_str = "|".join(sorted(uniq_types))
     return f"list({type_str})"
 
 
@@ -33,32 +37,37 @@ def get_type_str(value: Any) -> str:
 
     Handles special cases and provides more specific type information.
     """
+    # Fast type checking, more likely cases first, bool before int as bool is subclass of int
     if value is None:
         return "null"
-    if isinstance(value, bool):
+    vt = type(value)
+    if vt is bool:
         return "bool"
-    if isinstance(value, int):
+    if vt is int:
         return "int"
-    if isinstance(value, float):
+    if vt is float:
         return "float"
-    if isinstance(value, str):
-        # Check if string is actually a date/datetime
-        if any(date_pattern in value.lower() for date_pattern in ["date", "time", "yyyy", "mm/dd", "dd/mm", "yyyy-mm"]):
-            return "str(possible_date)"
-        # Check if it's a JSON string
+    if vt is str:
+        vlow = value.lower()
+        # Avoid generator and any, use any substring directly
+        for pattern in _DATE_PATTERNS:
+            if pattern in vlow:
+                return "str(possible_date)"
+        # Try fast JSON decode (note: try-except block is very fast for exceptions)
         try:
             json.loads(value)
             return "str(json)"
         except (json.JSONDecodeError, TypeError):
             pass
-        else:
-            return "str"
-    if isinstance(value, list | tuple | set):
+        return "str"
+    # Sequence types
+    if isinstance(value, (list, tuple, set)):
+        # For tuple and set, casting to list is not avoidable due to sampling logic
         return infer_list_type(list(value))
-    if isinstance(value, dict):
+    if vt is dict:
         return "dict"
     # Handle custom objects
-    return type(value).__name__
+    return vt.__name__
 
 
 def analyze_value(
