@@ -13,7 +13,8 @@ if TYPE_CHECKING:
     from lfx.services.settings.service import SettingsService
     from sqlmodel.ext.asyncio.session import AsyncSession
 
-    from langflow.services.cache.service import AsyncBaseCacheService, CacheService
+    from langflow.services.cache.service import (AsyncBaseCacheService,
+                                                 CacheService)
     from langflow.services.chat.service import ChatService
     from langflow.services.database.service import DatabaseService
     from langflow.services.job_queue.service import JobQueueService
@@ -119,9 +120,16 @@ def get_settings_service() -> SettingsService:
     Raises:
         ValueError: If the service cannot be retrieved or initialized.
     """
-    from lfx.services.settings.factory import SettingsServiceFactory
+    try:
+        return get_settings_service._instance
+    except AttributeError:
+        # Import here to avoid unnecessary global import/circular import
+        from lfx.services.settings.factory import SettingsServiceFactory
 
-    return get_service(ServiceType.SETTINGS_SERVICE, SettingsServiceFactory())
+        from langflow.services.deps import get_service
+
+        get_settings_service._instance = get_service(ServiceType.SETTINGS_SERVICE, SettingsServiceFactory())
+        return get_settings_service._instance
 
 
 def get_db_service() -> DatabaseService:
@@ -190,7 +198,8 @@ def get_shared_component_cache_service() -> CacheService:
     Returns:
         The cache service instance.
     """
-    from langflow.services.shared_component_cache.factory import SharedComponentCacheServiceFactory
+    from langflow.services.shared_component_cache.factory import \
+        SharedComponentCacheServiceFactory
 
     return get_service(ServiceType.SHARED_COMPONENT_CACHE_SERVICE, SharedComponentCacheServiceFactory())
 

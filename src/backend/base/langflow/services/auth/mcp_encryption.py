@@ -27,26 +27,27 @@ def encrypt_auth_settings(auth_settings: dict[str, Any] | None) -> dict[str, Any
     if auth_settings is None:
         return None
 
+    # Only check fields that are in SENSITIVE_FIELDS and also present in auth_settings
+    relevant_fields = [field for field in SENSITIVE_FIELDS if auth_settings.get(field)]
+    if not relevant_fields:
+        return auth_settings
+
     settings_service = get_settings_service()
     encrypted_settings = auth_settings.copy()
 
-    for field in SENSITIVE_FIELDS:
-        if encrypted_settings.get(field):
+    for field in relevant_fields:
+        try:
+            # Only encrypt if the value is not already encrypted
             try:
-                # Only encrypt if the value is not already encrypted
-                # Try to decrypt first - if it fails, it's not encrypted
-                try:
-                    auth_utils.decrypt_api_key(encrypted_settings[field], settings_service)
-                    # If decrypt succeeds, it's already encrypted
-                    logger.debug(f"Field {field} is already encrypted")
-                except (ValueError, TypeError, KeyError, InvalidToken):
-                    # If decrypt fails, the value is plaintext and needs encryption
-                    encrypted_value = auth_utils.encrypt_api_key(encrypted_settings[field], settings_service)
-                    encrypted_settings[field] = encrypted_value
-                    logger.debug(f"Encrypted field {field}")
-            except (ValueError, TypeError, KeyError) as e:
-                logger.error(f"Failed to encrypt field {field}: {e}")
-                raise
+                auth_utils.decrypt_api_key(encrypted_settings[field], settings_service)
+                logger.debug(f"Field {field} is already encrypted")
+            except (ValueError, TypeError, KeyError, InvalidToken):
+                encrypted_value = auth_utils.encrypt_api_key(encrypted_settings[field], settings_service)
+                encrypted_settings[field] = encrypted_value
+                logger.debug(f"Encrypted field {field}")
+        except (ValueError, TypeError, KeyError) as e:
+            logger.error(f"Failed to encrypt field {field}: {e}")
+            raise
 
     return encrypted_settings
 
