@@ -62,23 +62,18 @@ def remove_api_keys(flow: dict):
 def build_input_keys_response(langchain_object, artifacts):
     """Build the input keys response."""
     input_keys_response = {
-        "input_keys": dict.fromkeys(langchain_object.input_keys, ""),
+        "input_keys": {key: artifacts.get(key, "") for key in langchain_object.input_keys},
         "memory_keys": [],
         "handle_keys": artifacts.get("handle_keys", []),
     }
 
-    # Set the input keys values from artifacts
-    for key, value in artifacts.items():
-        if key in input_keys_response["input_keys"]:
-            input_keys_response["input_keys"][key] = value
     # If the object has memory, that memory will have a memory_variables attribute
     # memory variables should be removed from the input keys
     if hasattr(langchain_object, "memory") and hasattr(langchain_object.memory, "memory_variables"):
+        memory_variables = set(langchain_object.memory.memory_variables)
         # Remove memory variables from input keys
         input_keys_response["input_keys"] = {
-            key: value
-            for key, value in input_keys_response["input_keys"].items()
-            if key not in langchain_object.memory.memory_variables
+            key: value for key, value in input_keys_response["input_keys"].items() if key not in memory_variables
         }
         # Add memory variables to memory_keys
         input_keys_response["memory_keys"] = langchain_object.memory.memory_variables
@@ -316,9 +311,14 @@ def custom_params(
     page: int | None = Query(None),
     size: int | None = Query(None),
 ):
+    # Precompute conditions to avoid repeat checks and dict creation
     if page is None and size is None:
         return None
-    return Params(page=page or MIN_PAGE_SIZE, size=size or MAX_PAGE_SIZE)
+
+    # Use local variables for default values to avoid attribute lookup at call
+    p = page if page is not None else MIN_PAGE_SIZE
+    s = size if size is not None else MAX_PAGE_SIZE
+    return Params(page=p, size=s)
 
 
 async def verify_public_flow_and_get_user(flow_id: uuid.UUID, client_id: str | None) -> tuple[User, uuid.UUID]:
