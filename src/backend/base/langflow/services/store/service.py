@@ -166,9 +166,9 @@ class StoreService(Service):
 
     @staticmethod
     def build_tags_filter(tags: list[str]):
-        tags_filter: dict[str, Any] = {"tags": {"_and": []}}
-        for tag in tags:
-            tags_filter["tags"]["_and"].append({"_some": {"tags_id": {"name": {"_eq": tag}}}})
+        # Optimize the list append (remove per-iteration lookups)
+        _some = [{"_some": {"tags_id": {"name": {"_eq": tag}}}} for tag in tags]
+        tags_filter: dict[str, Any] = {"tags": {"_and": _some}}
         return tags_filter
 
     async def count_components(
