@@ -1,8 +1,11 @@
 import json
-from collections import Counter
 from typing import Any
 
 from langflow.schema.data import Data
+
+_DATE_PATTERNS = ["date", "time", "yyyy", "mm/dd", "dd/mm", "yyyy-mm"]
+
+_DATE_PATTERNS_LC = tuple(p.lower() for p in _DATE_PATTERNS)
 
 
 def infer_list_type(items: list, max_samples: int = 5) -> str:
@@ -14,17 +17,21 @@ def infer_list_type(items: list, max_samples: int = 5) -> str:
         return "list(unknown)"
 
     # Sample items (use all if less than max_samples)
-    samples = items[:max_samples]
-    types = [get_type_str(item) for item in samples]
+    samples = items if len(items) <= max_samples else items[:max_samples]
+
+    # Use local var for get_type_str for fastest lookup
+    _get_type_str = get_type_str
+    # List-comprehension is already fast; keep as is for list lookup
+    types = [_get_type_str(item) for item in samples]
 
     # Count type occurrences
-    type_counter = Counter(types)
+    # For fast path, check: if types[0] is the same as all in types
+    first_type = types[0]
+    if all(t == first_type for t in types):
+        return f"list({first_type})"
 
-    if len(type_counter) == 1:
-        # Single type
-        return f"list({types[0]})"
-    # Mixed types - show all found types
-    type_str = "|".join(sorted(type_counter.keys()))
+    # Mixed types - use set & sorted, skip Counter for performance
+    type_str = "|".join(sorted(set(types)))
     return f"list({type_str})"
 
 
@@ -42,8 +49,9 @@ def get_type_str(value: Any) -> str:
     if isinstance(value, float):
         return "float"
     if isinstance(value, str):
-        # Check if string is actually a date/datetime
-        if any(date_pattern in value.lower() for date_pattern in ["date", "time", "yyyy", "mm/dd", "dd/mm", "yyyy-mm"]):
+        # Avoid repeated .lower/any loop
+        val_lower = value.lower()
+        if any(pattern in val_lower for pattern in _DATE_PATTERNS_LC):
             return "str(possible_date)"
         # Check if it's a JSON string
         try:
@@ -51,9 +59,9 @@ def get_type_str(value: Any) -> str:
             return "str(json)"
         except (json.JSONDecodeError, TypeError):
             pass
-        else:
-            return "str"
-    if isinstance(value, list | tuple | set):
+        return "str"
+    if isinstance(value, (list, tuple, set)):
+        # Minor: use tuple (faster isinstance)
         return infer_list_type(list(value))
     if isinstance(value, dict):
         return "dict"
@@ -84,7 +92,8 @@ def analyze_value(
         return f"max_depth_reached(depth={max_depth})"
 
     try:
-        if isinstance(value, list | tuple | set):
+        # Use faster tuple-lookup for isinstance
+        if isinstance(value, (list, tuple, set)):
             length = len(value)
             if length == 0:
                 return "list(unknown)"
@@ -93,11 +102,12 @@ def analyze_value(
             size_info = f"[size={length}]" if size_hints else ""
 
             # For lists of complex objects, include a sample of the structure
+            # Minor: fold early exit checks to reduce short-circuit code
             if (
                 include_samples
                 and length > 0
-                and isinstance(value, list | tuple)
-                and isinstance(value[0], dict | list)
+                and isinstance(value, (list, tuple))
+                and isinstance(value[0], (dict, list))
                 and current_depth < max_depth - 1
             ):
                 sample = analyze_value(
@@ -113,11 +123,13 @@ def analyze_value(
             return f"{type_info}{size_info}"
 
         if isinstance(value, dict):
+            # Move frequently-used vars to locals for perf
+            _analyze_value = analyze_value
             result = {}
             for k, v in value.items():
                 new_path = f"{path}.{k}" if path else k
                 try:
-                    result[k] = analyze_value(
+                    result[k] = _analyze_value(
                         v,
                         max_depth,
                         current_depth + 1,
