@@ -1,8 +1,10 @@
 import json
-from collections import Counter
+import re
 from typing import Any
 
 from langflow.schema.data import Data
+
+_DATE_PATTERN_RE = re.compile(r"(date|time|yyyy|mm/dd|dd/mm|yyyy-mm)", re.IGNORECASE)
 
 
 def infer_list_type(items: list, max_samples: int = 5) -> str:
@@ -15,16 +17,23 @@ def infer_list_type(items: list, max_samples: int = 5) -> str:
 
     # Sample items (use all if less than max_samples)
     samples = items[:max_samples]
-    types = [get_type_str(item) for item in samples]
+    type_counts = {}
+    unique_types = []
 
-    # Count type occurrences
-    type_counter = Counter(types)
+    # Single-pass loop to collect type strings and counts
+    for item in samples:
+        t = get_type_str(item)
+        if t not in type_counts:
+            unique_types.append(t)
+            type_counts[t] = 1
+        else:
+            type_counts[t] += 1
 
-    if len(type_counter) == 1:
+    if len(type_counts) == 1:
         # Single type
-        return f"list({types[0]})"
+        return f"list({unique_types[0]})"
     # Mixed types - show all found types
-    type_str = "|".join(sorted(type_counter.keys()))
+    type_str = "|".join(sorted(type_counts.keys()))
     return f"list({type_str})"
 
 
@@ -42,18 +51,24 @@ def get_type_str(value: Any) -> str:
     if isinstance(value, float):
         return "float"
     if isinstance(value, str):
-        # Check if string is actually a date/datetime
-        if any(date_pattern in value.lower() for date_pattern in ["date", "time", "yyyy", "mm/dd", "dd/mm", "yyyy-mm"]):
+        # Cache value.lower()
+        value_lower = value.lower()
+        # Use regex for date patterns
+        if _DATE_PATTERN_RE.search(value_lower):
             return "str(possible_date)"
-        # Check if it's a JSON string
-        try:
-            json.loads(value)
-            return "str(json)"
-        except (json.JSONDecodeError, TypeError):
-            pass
-        else:
-            return "str"
-    if isinstance(value, list | tuple | set):
+        # Fast pre-check for likely JSON
+        s = value.lstrip()
+        if s and (s[0] == "{" or s[0] == "["):
+            try:
+                json.loads(value)
+                return "str(json)"
+            except (json.JSONDecodeError, TypeError):
+                pass
+        return "str"
+    if isinstance(value, (list, tuple, set)):
+        # Avoid unnecessary list conversion for lists
+        if isinstance(value, list):
+            return infer_list_type(value)
         return infer_list_type(list(value))
     if isinstance(value, dict):
         return "dict"
