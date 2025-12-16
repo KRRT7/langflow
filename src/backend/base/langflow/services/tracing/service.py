@@ -36,9 +36,14 @@ def _get_langwatch_tracer():
 
 
 def _get_langfuse_tracer():
-    from langflow.services.tracing.langfuse import LangFuseTracer
+    global _LANGFUSE_TRACER_CACHED
+    try:
+        return _LANGFUSE_TRACER_CACHED
+    except NameError:
+        from langflow.services.tracing.langfuse import LangFuseTracer
 
-    return LangFuseTracer
+        _LANGFUSE_TRACER_CACHED = LangFuseTracer
+        return LangFuseTracer
 
 
 def _get_arize_phoenix_tracer():
