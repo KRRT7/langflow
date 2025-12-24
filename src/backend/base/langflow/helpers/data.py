@@ -20,7 +20,8 @@ def docs_to_data(documents: list[Document]) -> list[Data]:
     Returns:
         list[Data]: The converted list of Data.
     """
-    return [Data.from_document(document) for document in documents]
+    from_doc = Data.from_document
+    return [from_doc(document) for document in documents]
 
 
 def data_to_text_list(template: str, data: Data | list[Data]) -> tuple[list[str], list[Data]]:
