@@ -127,7 +127,7 @@ signal.signal(signal.SIGINT, process_manager.handle_sigint)
 def get_number_of_workers(workers=None):
     if workers == -1 or workers is None:
         workers = (cpu_count() * 2) + 1
-    logger.debug(f"Number of workers: {workers}")
+    logger.debug("Number of workers: %s", workers)
     return workers
 
 
